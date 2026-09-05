@@ -27,7 +27,7 @@
   .view.active { display: block; }
 
   /* Shuffle button */
-  .shuffle-wrap { display: flex; justify-content: center; margin: 20px 0 26px; }
+  .shuffle-wrap { display: flex; justify-content: center; margin: 20px 0 10px; }
   .shuffle-btn {
     width: 140px; height: 140px; border-radius: 50%; border: none;
     background: linear-gradient(145deg, #F5B942, #E85D3D);
@@ -38,7 +38,6 @@
   }
   .shuffle-btn:active { transform: scale(0.95) translateY(4px); box-shadow: 0 4px 0 #C8461F; }
   .shuffle-btn:disabled { background: #E4DDD0; box-shadow: none; cursor: not-allowed; }
-  .shuffle-btn svg { animation: none; }
   .shuffle-btn.spin svg { animation: spin 0.4s linear; }
   @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
   @keyframes pop { 0%{transform:scale(1) rotate(0)} 30%{transform:scale(.92) rotate(-4deg)} 60%{transform:scale(1.05) rotate(3deg)} 100%{transform:scale(1) rotate(0)} }
@@ -46,22 +45,37 @@
   @keyframes wiggle { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-3deg)} 75%{transform:rotate(3deg)} }
   .day-row.wiggle { animation: wiggle 0.36s ease; }
 
+  .week-header { display: flex; align-items: center; justify-content: space-between; margin: 18px 0 10px; }
+  .week-header h2 { font-size: 15px; font-weight: 700; margin: 0; color: #8A7768; }
+  .reset-link {
+    border: none; background: transparent; color: #B4472E; font-weight: 700; font-size: 13px;
+    cursor: pointer; font-family: 'Nunito', sans-serif; padding: 4px;
+  }
+
   /* Day rows */
   .day-row {
     display: flex; align-items: center; background: #fff; border-radius: 16px;
     padding: 12px 13px; margin-bottom: 9px; border: 1.5px solid #F0E6D6;
   }
+  .day-row.locked { border-color: #F5B942; background: #FFFBF0; }
   .day-badge {
     width: 42px; height: 42px; border-radius: 12px; background: #FBEFD9; color: #C4791A;
     display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif;
     font-weight: 700; font-size: 12px; margin-right: 12px; flex-shrink: 0;
   }
-  .day-meal { flex: 1; min-width: 0; font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .day-meal.empty { color: #C9BBA9; font-weight: 600; }
-  .reroll-btn {
-    border: none; background: #F5F1E8; width: 34px; height: 34px; border-radius: 10px;
-    display: flex; align-items: center; justify-content: center; color: #8A7768; cursor: pointer; flex-shrink: 0;
+  .day-meal-btn {
+    flex: 1; min-width: 0; text-align: left; background: none; border: none; padding: 0;
+    font-family: inherit; cursor: pointer;
   }
+  .day-meal { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #3A2318; }
+  .day-meal.empty { color: #C9BBA9; font-weight: 600; }
+  .lock-tag { font-size: 11px; color: #B4791A; font-weight: 700; margin-top: 1px; display: flex; align-items: center; gap: 3px; }
+  .day-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .reroll-btn, .lock-btn {
+    border: none; background: #F5F1E8; width: 34px; height: 34px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; color: #8A7768; cursor: pointer;
+  }
+  .lock-btn.active { background: #F5B942; color: #fff; }
   .reroll-btn:active { transform: scale(0.9) rotate(90deg); }
 
   /* Shopping list card */
@@ -80,7 +94,11 @@
     border-radius: 12px; padding: 11px; font-size: 14px; cursor: pointer; font-family: inherit;
     display: flex; align-items: center; justify-content: center; gap: 6px;
   }
-  .btn-secondary:active, .btn-primary:active { transform: scale(0.97); }
+  .btn-danger-outline {
+    border: 1.5px solid #F0C9B8; background: #FFF9F5; color: #B4472E; font-weight: 700;
+    border-radius: 12px; padding: 11px; font-size: 14px; cursor: pointer; font-family: inherit;
+  }
+  .btn-secondary:active, .btn-primary:active, .btn-danger-outline:active { transform: scale(0.97); }
 
   /* Meals view */
   .meal-card {
@@ -114,11 +132,18 @@
   }
   .modal h2 { font-size: 19px; font-weight: 700; margin: 0 0 14px; }
   .field-label { font-size: 13px; font-weight: 700; color: #8A7768; margin: 0 0 6px; display: block; }
-  .field-input, .field-textarea {
+  .field-input, .field-textarea, .field-select {
     width: 100%; border: 1.5px solid #F0E6D6; background: #fff; border-radius: 12px; padding: 11px 13px;
     font-size: 15px; font-family: inherit; font-weight: 600; color: #3A2318; outline: none; margin-bottom: 14px;
   }
   .field-textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
+  .lock-row {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 16px; background: #fff;
+    border: 1.5px solid #F0E6D6; border-radius: 12px; padding: 12px 13px;
+  }
+  .lock-row input[type="checkbox"] { width: 19px; height: 19px; accent-color: #E85D3D; flex-shrink: 0; }
+  .lock-row label { font-size: 14px; font-weight: 700; color: #3A2318; }
+  .lock-row .sub { display: block; font-size: 12px; font-weight: 600; color: #8A7768; margin-top: 1px; }
   .modal-actions { display: flex; gap: 8px; }
 
   /* Bottom nav */
@@ -152,6 +177,11 @@
         <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>
         <span id="shuffleLabel">Plan my week</span>
       </button>
+    </div>
+
+    <div class="week-header">
+      <h2>Locked days stay put when you shuffle</h2>
+      <button class="reset-link" id="resetWeekBtn">Reset week</button>
     </div>
 
     <div id="weekList"></div>
@@ -201,10 +231,34 @@
   </div>
 </div>
 
+<!-- Day editor modal -->
+<div class="modal-overlay" id="dayModalOverlay">
+  <div class="modal">
+    <h2 id="dayModalTitle">Edit day</h2>
+    <label class="field-label">Meal</label>
+    <input class="field-input" id="dayTextInput" placeholder="Type a meal, e.g. Takeaway">
+    <label class="field-label">Or pick a favourite</label>
+    <select class="field-select" id="dayQuickPick">
+      <option value="">Choose a favourite…</option>
+    </select>
+    <div class="lock-row">
+      <input type="checkbox" id="dayLockCheckbox">
+      <label for="dayLockCheckbox">Lock this day
+        <span class="sub">Shuffle will skip it and leave it as is</span>
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger-outline" id="dayClearBtn">Clear day</button>
+      <button class="btn-primary" id="daySaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const STORE_MEALS = "mp_meals_v1";
-const STORE_WEEK = "mp_week_v1";
+const STORE_WEEK = "mp_week_v2";
+const STORE_WEEK_OLD = "mp_week_v1";
 
 const STARTER_MEALS = [
   { id: "m1", name: "Spaghetti bolognese", ingredients: ["Mince beef","Spaghetti","Tinned tomatoes","Onion","Garlic","Parmesan"] },
@@ -221,67 +275,114 @@ function loadMeals() {
   } catch (e) {}
   return STARTER_MEALS;
 }
-function saveMeals(meals) { localStorage.setItem(STORE_MEALS, JSON.stringify(meals)); }
+function saveMeals(m) { localStorage.setItem(STORE_MEALS, JSON.stringify(m)); }
+
+// week[i] is either null (empty) or { text: string, locked: bool }
 function loadWeek() {
   try {
     const raw = localStorage.getItem(STORE_WEEK);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
+  // migrate from old format (array of meal ids or null)
+  try {
+    const oldRaw = localStorage.getItem(STORE_WEEK_OLD);
+    if (oldRaw) {
+      const oldWeek = JSON.parse(oldRaw);
+      const m = loadMeals();
+      return oldWeek.map(id => {
+        if (!id) return null;
+        const meal = m.find(x => x.id === id);
+        return { text: meal ? meal.name : id, locked: false };
+      });
+    }
+  } catch (e) {}
   return Array(7).fill(null);
 }
-function saveWeek(week) { localStorage.setItem(STORE_WEEK, JSON.stringify(week)); }
+function saveWeek(w) { localStorage.setItem(STORE_WEEK, JSON.stringify(w)); }
 
 let meals = loadMeals();
 let week = loadWeek();
 let editingMealId = null;
+let editingDayIndex = null;
 
 function uid() { return "m" + Date.now() + Math.floor(Math.random()*1000); }
-
 function mealById(id) { return meals.find(m => m.id === id); }
+function mealByName(name) {
+  if (!name) return null;
+  const key = name.trim().toLowerCase();
+  return meals.find(m => m.name.trim().toLowerCase() === key) || null;
+}
 
 function pickWeek() {
-  const ids = meals.map(m => m.id);
-  const result = [];
+  const names = meals.map(m => m.name);
+  const result = week.map(d => d && d.locked ? d : null);
+  const slotsToFill = [];
+  result.forEach((d, i) => { if (!d) slotsToFill.push(i); });
+
   let deck = [];
-  for (let i = 0; i < 7; i++) {
+  let lastPicked = null;
+  slotsToFill.forEach((i) => {
     if (deck.length === 0) {
-      deck = [...ids].sort(() => Math.random() - 0.5);
-      if (result.length && deck[0] === result[result.length-1] && deck.length > 1) {
+      deck = [...names].sort(() => Math.random() - 0.5);
+      if (lastPicked && deck[0] === lastPicked && deck.length > 1) {
         [deck[0], deck[1]] = [deck[1], deck[0]];
       }
     }
-    result.push(deck.pop());
-  }
+    const pick = deck.pop();
+    lastPicked = pick;
+    result[i] = { text: pick, locked: false };
+  });
   return result;
 }
 
 function renderWeek() {
   const list = document.getElementById("weekList");
   list.innerHTML = "";
-  const hasPlan = week.some(id => id !== null);
+  const hasPlan = week.some(d => d !== null);
   document.getElementById("shuffleLabel").textContent = hasPlan ? "Shuffle again" : "Plan my week";
   document.getElementById("shuffleBtn").disabled = meals.length === 0;
 
   DAYS.forEach((day, i) => {
+    const d = week[i];
     const row = document.createElement("div");
-    row.className = "day-row";
+    row.className = "day-row" + (d && d.locked ? " locked" : "");
     row.id = "day-" + i;
-    const meal = week[i] ? mealById(week[i]) : null;
     row.innerHTML = `
       <div class="day-badge">${day}</div>
-      <div class="day-meal ${meal ? "" : "empty"}">${meal ? meal.name : "Not decided yet"}</div>
-      ${meal ? `<button class="reroll-btn" data-day="${i}" aria-label="Reroll ${day}">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.5 9a9 9 0 0114.85-3.36L23 10M1 14l4.65 4.36A9 9 0 0020.5 15"/></svg>
-      </button>` : ""}
+      <button class="day-meal-btn" data-open="${i}">
+        <div class="day-meal ${d ? "" : "empty"}">${d ? escapeHtml(d.text) : "Not decided yet"}</div>
+        ${d && d.locked ? `<div class="lock-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a5 5 0 00-5 5v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1V7a5 5 0 00-5-5zm-3 8V7a3 3 0 016 0v3z"/></svg>Locked</div>` : ""}
+      </button>
+      <div class="day-actions">
+        ${(d && !d.locked) ? `<button class="reroll-btn" data-reroll="${i}" aria-label="Reroll ${day}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.5 9a9 9 0 0114.85-3.36L23 10M1 14l4.65 4.36A9 9 0 0020.5 15"/></svg>
+        </button>` : ""}
+        <button class="lock-btn ${d && d.locked ? "active" : ""}" data-lock="${i}" aria-label="${d && d.locked ? "Unlock" : "Lock"} ${day}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a5 5 0 00-5 5v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1V7a5 5 0 00-5-5zm-3 8V7a3 3 0 016 0v3z"/></svg>
+        </button>
+      </div>
     `;
     list.appendChild(row);
   });
 
-  document.querySelectorAll(".reroll-btn").forEach(btn => {
-    btn.addEventListener("click", () => rerollDay(parseInt(btn.dataset.day)));
+  document.querySelectorAll("[data-open]").forEach(btn => {
+    btn.addEventListener("click", () => openDayModal(parseInt(btn.dataset.open)));
+  });
+  document.querySelectorAll("[data-reroll]").forEach(btn => {
+    btn.addEventListener("click", (e) => { e.stopPropagation(); rerollDay(parseInt(btn.dataset.reroll)); });
+  });
+  document.querySelectorAll("[data-lock]").forEach(btn => {
+    btn.addEventListener("click", (e) => { e.stopPropagation(); toggleLock(parseInt(btn.dataset.lock)); });
   });
 
   renderShoppingList();
+}
+
+function toggleLock(i) {
+  if (!week[i]) return; // nothing to lock
+  week[i] = { ...week[i], locked: !week[i].locked };
+  saveWeek(week);
+  renderWeek();
 }
 
 function shuffleAll() {
@@ -298,10 +399,12 @@ function shuffleAll() {
 
 function rerollDay(i) {
   if (meals.length === 0) return;
-  const others = meals.filter(m => m.id !== week[i]);
+  if (week[i] && week[i].locked) return;
+  const currentText = week[i] ? week[i].text : null;
+  const others = meals.filter(m => m.name !== currentText);
   const pool = others.length ? others : meals;
   const next = pool[Math.floor(Math.random() * pool.length)];
-  week[i] = next.id;
+  week[i] = { text: next.name, locked: false };
   saveWeek(week);
   renderWeek();
   const row = document.getElementById("day-" + i);
@@ -311,11 +414,19 @@ function rerollDay(i) {
   }
 }
 
+function resetWeek() {
+  if (!confirm("Clear the whole week, including locked days?")) return;
+  week = Array(7).fill(null);
+  saveWeek(week);
+  renderWeek();
+}
+document.getElementById("resetWeekBtn").addEventListener("click", resetWeek);
+
 function buildShoppingList() {
   const seen = new Map();
-  week.forEach(id => {
-    if (!id) return;
-    const meal = mealById(id);
+  week.forEach(d => {
+    if (!d) return;
+    const meal = mealByName(d.text);
     if (!meal) return;
     (meal.ingredients || []).forEach(ing => {
       const key = ing.trim().toLowerCase();
@@ -376,6 +487,55 @@ document.getElementById("shareBtn").addEventListener("click", async () => {
   }
 });
 
+// ---- Day modal ----
+function populateQuickPick() {
+  const sel = document.getElementById("dayQuickPick");
+  sel.innerHTML = `<option value="">Choose a favourite…</option>` +
+    meals.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join("");
+}
+
+function openDayModal(i) {
+  editingDayIndex = i;
+  const d = week[i];
+  document.getElementById("dayModalTitle").textContent = "Edit " + DAYS[i];
+  document.getElementById("dayTextInput").value = d ? d.text : "";
+  document.getElementById("dayLockCheckbox").checked = !!(d && d.locked);
+  populateQuickPick();
+  document.getElementById("dayQuickPick").value = "";
+  document.getElementById("dayModalOverlay").classList.add("active");
+  document.getElementById("dayTextInput").focus();
+}
+function closeDayModal() {
+  document.getElementById("dayModalOverlay").classList.remove("active");
+  editingDayIndex = null;
+}
+document.getElementById("dayQuickPick").addEventListener("change", (e) => {
+  if (e.target.value) document.getElementById("dayTextInput").value = e.target.value;
+});
+document.getElementById("dayModalOverlay").addEventListener("click", (e) => {
+  if (e.target.id === "dayModalOverlay") closeDayModal();
+});
+document.getElementById("dayClearBtn").addEventListener("click", () => {
+  if (editingDayIndex === null) return;
+  week[editingDayIndex] = null;
+  saveWeek(week);
+  closeDayModal();
+  renderWeek();
+});
+document.getElementById("daySaveBtn").addEventListener("click", () => {
+  if (editingDayIndex === null) return;
+  const text = document.getElementById("dayTextInput").value.trim();
+  const locked = document.getElementById("dayLockCheckbox").checked;
+  if (!text) {
+    week[editingDayIndex] = null;
+  } else {
+    week[editingDayIndex] = { text, locked };
+  }
+  saveWeek(week);
+  closeDayModal();
+  renderWeek();
+});
+
 // ---- Meals view ----
 function renderMeals() {
   const list = document.getElementById("mealsList");
@@ -409,10 +569,13 @@ function renderMeals() {
 }
 
 function deleteMeal(id) {
+  const meal = mealById(id);
   meals = meals.filter(m => m.id !== id);
   saveMeals(meals);
-  week = week.map(wid => wid === id ? null : wid);
-  saveWeek(week);
+  if (meal) {
+    week = week.map(d => (d && d.text === meal.name) ? null : d);
+    saveWeek(week);
+  }
   renderMeals();
   renderWeek();
 }
@@ -426,18 +589,15 @@ function openMealModal(id) {
   document.getElementById("mealModalOverlay").classList.add("active");
   document.getElementById("mealNameInput").focus();
 }
-
 function closeMealModal() {
   document.getElementById("mealModalOverlay").classList.remove("active");
   editingMealId = null;
 }
-
 document.getElementById("addMealBtn").addEventListener("click", () => openMealModal(null));
 document.getElementById("mealCancelBtn").addEventListener("click", closeMealModal);
 document.getElementById("mealModalOverlay").addEventListener("click", (e) => {
   if (e.target.id === "mealModalOverlay") closeMealModal();
 });
-
 document.getElementById("mealSaveBtn").addEventListener("click", () => {
   const name = document.getElementById("mealNameInput").value.trim();
   if (!name) {
@@ -446,11 +606,16 @@ document.getElementById("mealSaveBtn").addEventListener("click", () => {
   }
   const ingredients = document.getElementById("mealIngInput").value
     .split("\n").map(s => s.trim()).filter(Boolean);
+  const oldName = editingMealId ? mealById(editingMealId).name : null;
 
   if (editingMealId) {
     const meal = mealById(editingMealId);
     meal.name = name;
     meal.ingredients = ingredients;
+    if (oldName && oldName !== name) {
+      week = week.map(d => (d && d.text === oldName) ? { ...d, text: name } : d);
+      saveWeek(week);
+    }
   } else {
     meals.push({ id: uid(), name, ingredients });
   }
