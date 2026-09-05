@@ -204,9 +204,11 @@
     </div>
 
     <div id="weekList"></div>
+  </div>
 
+  <!-- SHOPPING LIST VIEW -->
+  <div class="view" id="shopView">
     <div class="shop-card">
-      <h2>🛒 Shopping list</h2>
       <p class="hint">Ingredients for everything planned this week.</p>
       <ul class="shop-list" id="shopList"></ul>
       <div class="shop-actions">
@@ -228,6 +230,10 @@
   <button class="nav-btn active" data-view="plan">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>
     This week
+  </button>
+  <button class="nav-btn" data-view="shop">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1.3" fill="currentColor" stroke="none"/><circle cx="18" cy="21" r="1.3" fill="currentColor" stroke="none"/><path d="M2.5 3h2l2.4 12.2a2 2 0 002 1.6h8.4a2 2 0 002-1.6L21 8H6"/></svg>
+    Shopping list
   </button>
   <button class="nav-btn" data-view="meals">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5a2 2 0 012-2h9l5 5v11a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M14 3v5h5"/></svg>
@@ -727,11 +733,16 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
     btn.classList.add("active");
     const target = btn.dataset.view;
     document.getElementById("planView").classList.toggle("active", target === "plan");
+    document.getElementById("shopView").classList.toggle("active", target === "shop");
     document.getElementById("mealsView").classList.toggle("active", target === "meals");
-    document.getElementById("pageTitle").textContent = target === "plan" ? "What's for tea? 🍲" : "My meals 📖";
-    document.getElementById("pageSubtitle").textContent = target === "plan"
-      ? "Tap the button, get a week of dinners."
-      : "Define your favourites and their ingredients.";
+    const titles = { plan: "What's for tea? 🍲", shop: "Shopping list 🛒", meals: "My meals 📖" };
+    const subtitles = {
+      plan: "Tap the button, get a week of dinners.",
+      shop: "Everything you need for the week ahead.",
+      meals: "Define your favourites and their ingredients.",
+    };
+    document.getElementById("pageTitle").textContent = titles[target];
+    document.getElementById("pageSubtitle").textContent = subtitles[target];
   });
 });
 
