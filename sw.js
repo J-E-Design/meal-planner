@@ -1,5 +1,5 @@
-const CACHE = "meal-planner-v3";
-const FILES = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
+const CACHE = "meal-planner-v4";
+const FILES = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
