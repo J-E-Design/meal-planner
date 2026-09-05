@@ -55,6 +55,10 @@
     cursor: pointer; font-family: 'Nunito', sans-serif; padding: 4px;
   }
 
+  #weekList {
+    padding-bottom: 20px; max-height: 60vh; overflow-y: auto;
+  }
+
   /* Day rows */
   .day-row {
     display: flex; align-items: center; background: #fff; border-radius: 16px;
