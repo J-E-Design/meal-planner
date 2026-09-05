@@ -1,4 +1,4 @@
-const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const STORE_MEALS = "mp_meals_v1";
 const STORE_WEEK = "mp_week_v2";
 const STORE_WEEK_OLD = "mp_week_v1";
