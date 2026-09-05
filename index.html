@@ -144,6 +144,10 @@
     background: #FFF6EA; width: 100%; max-width: 460px; border-radius: 22px 22px 0 0;
     padding: 22px 20px calc(22px + env(safe-area-inset-bottom)); max-height: 85vh; overflow-y: auto;
   }
+  #mealModalOverlay .modal {
+    min-height: 90vh; max-height: 92vh; display: flex; flex-direction: column;
+  }
+  #mealModalOverlay .modal-actions { margin-top: auto; padding-top: 14px; }
   .modal h2 { font-size: 19px; font-weight: 700; margin: 0 0 14px; }
   .field-label { font-size: 13px; font-weight: 700; color: #8A7768; margin: 0 0 6px; display: block; }
   .field-input, .field-textarea, .field-select {
@@ -151,6 +155,7 @@
     font-size: 15px; font-family: inherit; font-weight: 600; color: #3A2318; outline: none; margin-bottom: 14px;
   }
   .field-textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
+  #mealModalOverlay .field-textarea { flex: 1; min-height: 140px; }
   .lock-row {
     display: flex; align-items: center; gap: 10px; margin-bottom: 16px; background: #fff;
     border: 1.5px solid #F0E6D6; border-radius: 12px; padding: 12px 13px;
