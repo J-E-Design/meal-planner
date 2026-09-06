@@ -91,6 +91,8 @@
   .shop-card p.hint { font-size: 13px; color: #8A7768; margin: 0 0 12px; font-weight: 600; }
   .shop-list { font-size: 14px; line-height: 1.9; margin: 0 0 14px; padding-left: 18px; }
   .shop-actions { display: flex; gap: 8px; }
+  .keep-tip { font-size: 12px; color: #8A7768; margin: 10px 0 0; line-height: 1.5; }
+  .keep-tip strong { color: #3A2318; }
   .btn-secondary {
     flex: 1; border: 1.5px solid #E8DFCE; background: #FFFCF6; color: #3A2318; font-weight: 700;
     border-radius: 12px; padding: 11px; font-size: 14px; cursor: pointer; font-family: inherit;

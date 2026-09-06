@@ -374,24 +374,6 @@ document.getElementById("copyBtn").addEventListener("click", async () => {
   }
 });
 
-document.getElementById("shareBtn").addEventListener("click", async () => {
-  const items = buildShoppingList();
-  if (items.length === 0) return;
-  const text = items.join("\n");
-  if (navigator.share) {
-    try {
-      await navigator.share({ title: "Shopping list", text: text });
-    } catch (e) { /* user cancelled */ }
-  } else {
-    try {
-      await navigator.clipboard.writeText(text);
-      alert("Sharing isn't supported here, so the list was copied instead. Paste it into your Keep note.");
-    } catch (e) {
-      alert(text);
-    }
-  }
-});
-
 // ---- Day modal ----
 function populateQuickPick() {
   const sel = document.getElementById("dayQuickPick");
