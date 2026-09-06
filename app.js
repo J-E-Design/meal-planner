@@ -92,42 +92,104 @@ const STARTER_MEALS = [
   { id: "m5", name: "Pizza night", ingredients: ["Pizza bases","Mozzarella","Passata","Toppings of choice"] },
 ];
 
-function loadMeals() {
+// ---- Server-backed storage (PHP + MySQL) ----
+const API_MEALS = "api/meals.php";
+const API_WEEK = "api/week.php";
+
+async function apiGet(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("GET " + url + " failed: " + res.status);
+  return res.json();
+}
+async function apiPost(url, body) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error("POST " + url + " failed: " + res.status);
+  return res.json();
+}
+
+async function saveMeals(m) {
+  meals = m;
+  try {
+    await apiPost(API_MEALS, m);
+  } catch (e) {
+    showToast("Couldn't save your meals — check your connection.");
+  }
+}
+async function saveWeek(w) {
+  week = w;
+  try {
+    await apiPost(API_WEEK, w);
+  } catch (e) {
+    showToast("Couldn't save your week — check your connection.");
+  }
+}
+
+// one-time migration: pick up anything left over from the old localStorage-only version
+function readLegacyLocalMeals() {
   try {
     const raw = localStorage.getItem(STORE_MEALS);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {}
-  return STARTER_MEALS;
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
 }
-function saveMeals(m) { localStorage.setItem(STORE_MEALS, JSON.stringify(m)); }
-
-// week[i] is either null (empty) or { text: string, locked: bool }
-function loadWeek() {
+function readLegacyLocalWeek() {
   try {
     const raw = localStorage.getItem(STORE_WEEK);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {}
-  // migrate from old format (array of meal ids or null)
-  try {
-    const oldRaw = localStorage.getItem(STORE_WEEK_OLD);
-    if (oldRaw) {
-      const oldWeek = JSON.parse(oldRaw);
-      const m = loadMeals();
-      return oldWeek.map(id => {
-        if (!id) return null;
-        const meal = m.find(x => x.id === id);
-        return { text: meal ? meal.name : id, locked: false };
-      });
-    }
-  } catch (e) {}
-  return Array(7).fill(null);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
 }
-function saveWeek(w) { localStorage.setItem(STORE_WEEK, JSON.stringify(w)); }
 
-let meals = loadMeals();
-let week = loadWeek();
+let meals = [];
+let week = Array(7).fill(null);
 let editingMealId = null;
 let editingDayIndex = null;
+
+let toastTimer = null;
+function showToast(message) {
+  const el = document.getElementById("toast");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 3000);
+}
+function showApp() { document.body.className = "state-ready"; }
+function showLoadError() { document.body.className = "state-error"; }
+
+async function init() {
+  try {
+    const [remoteMeals, remoteWeek] = await Promise.all([apiGet(API_MEALS), apiGet(API_WEEK)]);
+    meals = remoteMeals;
+    week = remoteWeek;
+
+    // fresh database: seed it from whatever this device already had saved locally
+    if (meals.length === 0) {
+      const legacy = readLegacyLocalMeals();
+      meals = (legacy && legacy.length) ? legacy : STARTER_MEALS;
+      await apiPost(API_MEALS, meals);
+    }
+    if (week.every(d => d === null)) {
+      const legacy = readLegacyLocalWeek();
+      if (legacy && legacy.some(d => d !== null)) {
+        week = legacy;
+        await apiPost(API_WEEK, week);
+      }
+    }
+  } catch (e) {
+    showLoadError();
+    return;
+  }
+  showApp();
+  renderWeek();
+  renderMeals();
+}
+document.getElementById("retryBtn").addEventListener("click", () => {
+  document.body.className = "state-loading";
+  init();
+});
 
 function uid() { return "m" + Date.now() + Math.floor(Math.random()*1000); }
 function mealById(id) { return meals.find(m => m.id === id); }
@@ -543,5 +605,4 @@ if ("serviceWorker" in navigator) {
 }
 
 // ---- Init ----
-renderWeek();
-renderMeals();
+init();

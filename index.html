@@ -10,7 +10,19 @@
 <link rel="icon" href="icon-192.png">
 <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="state-loading">
+
+<div class="state-screen" id="loadingState">
+  <div class="loading-spinner"></div>
+  <p>Loading your meals…</p>
+</div>
+
+<div class="state-screen" id="errorState">
+  <p>🛜 Couldn't reach the server.</p>
+  <button class="btn-primary" id="retryBtn">Try again</button>
+</div>
+
+<div id="toast" class="toast"></div>
 
 <div class="wrap">
 

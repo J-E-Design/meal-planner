@@ -1,4 +1,4 @@
-const CACHE = "meal-planner-v4";
+const CACHE = "meal-planner-v5";
 const FILES = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -18,6 +18,10 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  // API calls always need live data - never cache or fall back to a stale copy.
+  if (event.request.url.includes("/api/")) {
+    return;
+  }
   event.respondWith(
     fetch(event.request)
       .then((response) => {
