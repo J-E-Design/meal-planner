@@ -58,7 +58,10 @@ const SOUND_OPTIONS = [
   { id: "cowabunga.mp3", label: "Cowabunga" },
   { id: "om_nom_nom_nom_nom.mp3", label: "Om Nom Nom Nom Nom" },
 ];
-const DEFAULT_SETTINGS = { sound: "nom.mp3", muted: false, confetti: true, darkMode: false };
+const DEFAULT_SETTINGS = { sound: "nom.mp3", muted: false, confetti: true, darkMode: false, excludedCategories: [] };
+
+// TheMealDB's stable category list (from /list.php?c=list)
+const MEAL_CATEGORIES = ["Beef", "Breakfast", "Chicken", "Dessert", "Goat", "Lamb", "Miscellaneous", "Pasta", "Pork", "Seafood", "Side", "Starter", "Vegan", "Vegetarian"];
 
 const NOM_AUDIO = new Audio();
 function updateNomAudioSrc() { NOM_AUDIO.src = settings.sound || DEFAULT_SETTINGS.sound; }
@@ -662,10 +665,19 @@ async function fetchSuggestion() {
   content.innerHTML = `<p class="hint">Fetching an idea…</p>`;
   addBtn.disabled = true;
   try {
-    const res = await fetch("https://www.themealdb.com/api/json/v1/1/random.php");
-    if (!res.ok) throw new Error("bad status");
-    const data = await res.json();
-    const meal = data.meals[0];
+    const excluded = new Set(settings.excludedCategories || []);
+    let meal = null;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const res = await fetch("https://www.themealdb.com/api/json/v1/1/random.php");
+      if (!res.ok) throw new Error("bad status");
+      const data = await res.json();
+      const candidate = data.meals[0];
+      if (!excluded.has(candidate.strCategory)) {
+        meal = candidate;
+        break;
+      }
+    }
+    if (!meal) throw new Error("no meal outside excluded categories");
     const ingredients = [];
     for (let i = 1; i <= 20; i++) {
       const ing = meal[`strIngredient${i}`];
@@ -686,7 +698,7 @@ async function fetchSuggestion() {
     addBtn.disabled = false;
   } catch (e) {
     currentSuggestion = null;
-    content.innerHTML = `<p class="hint">Couldn't fetch an idea — check your connection and try again.</p>`;
+    content.innerHTML = `<p class="hint">Couldn't find an idea — check your connection, or try enabling more categories in Settings.</p>`;
   }
 }
 function openSuggestModal() {
@@ -735,11 +747,30 @@ function renderSoundOptions() {
   });
 }
 
+function renderCategoryChips() {
+  const container = document.getElementById("categoryChips");
+  const excluded = new Set(settings.excludedCategories || []);
+  container.innerHTML = MEAL_CATEGORIES.map(cat => `
+    <button class="chip ${excluded.has(cat) ? "excluded" : ""}" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)}</button>
+  `).join("");
+  container.querySelectorAll("[data-cat]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const cat = btn.dataset.cat;
+      const set = new Set(settings.excludedCategories || []);
+      if (set.has(cat)) set.delete(cat); else set.add(cat);
+      settings.excludedCategories = [...set];
+      saveSettings(settings);
+      renderCategoryChips();
+    });
+  });
+}
+
 function renderSettingsView() {
   document.getElementById("muteToggle").checked = !!settings.muted;
   document.getElementById("confettiToggle").checked = settings.confetti !== false;
   document.getElementById("darkModeToggle").checked = !!settings.darkMode;
   renderSoundOptions();
+  renderCategoryChips();
 }
 
 document.getElementById("muteToggle").addEventListener("change", (e) => {

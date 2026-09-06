@@ -1,4 +1,4 @@
-const CACHE = "meal-planner-v9";
+const CACHE = "meal-planner-v10";
 const FILES = [
   "./", "./index.html", "./styles.css", "./app.js", "./manifest.json", "./icon-192.png", "./icon-512.png",
   "./nom.mp3", "./cowabunga.mp3", "./om_nom_nom_nom_nom.mp3",
@@ -43,7 +43,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   event.respondWith(
-    fetch(event.request)
+    // GitHub Pages serves static files with Cache-Control: max-age=600, so a
+    // plain fetch() can silently return a stale disk-cached response even
+    // though we're "hitting the network" - force a real bypass here.
+    fetch(event.request, { cache: "no-store" })
       .then((response) => {
         const copy = response.clone();
         caches.open(CACHE).then((cache) => cache.put(event.request, copy));
