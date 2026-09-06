@@ -53,11 +53,25 @@ const FUN_MESSAGES = [
 
 const CONFETTI_EMOJI = ["🎉", "✨", "🥳", "🍕", "🌮", "🍗", "🥕", "⭐"];
 
-const NOM_SOUND = new Audio("nom.mp3");
+const SOUND_OPTIONS = [
+  { id: "nom.mp3", label: "Cookie Monster" },
+  { id: "cowabunga.mp3", label: "Cowabunga" },
+  { id: "om_nom_nom_nom_nom.mp3", label: "Om Nom Nom Nom Nom" },
+];
+const DEFAULT_SETTINGS = { sound: "nom.mp3", muted: false, confetti: true, darkMode: false };
+
+const NOM_AUDIO = new Audio();
+function updateNomAudioSrc() { NOM_AUDIO.src = settings.sound || DEFAULT_SETTINGS.sound; }
 function playNomSound() {
+  if (settings.muted) return;
   try {
-    NOM_SOUND.currentTime = 0;
-    NOM_SOUND.play().catch(() => {});
+    NOM_AUDIO.currentTime = 0;
+    NOM_AUDIO.play().catch(() => {});
+  } catch (e) {}
+}
+function previewSound(src) {
+  try {
+    new Audio(src).play().catch(() => {});
   } catch (e) {}
 }
 
@@ -138,6 +152,20 @@ async function saveWeek(w) {
     showToast("Couldn't save your week — check your connection.");
   }
 }
+async function saveSettings(s) {
+  settings = s;
+  try {
+    await stateSet("settings", s);
+  } catch (e) {
+    showToast("Couldn't save settings — check your connection.");
+  }
+}
+async function saveHistory(h) {
+  history = h;
+  try {
+    await stateSet("history", h);
+  } catch (e) { /* non-critical, fail silently */ }
+}
 
 // one-time migration: pick up anything left over from the old localStorage-only version
 function readLegacyLocalMeals() {
@@ -155,6 +183,8 @@ function readLegacyLocalWeek() {
 
 let meals = [];
 let week = Array(7).fill(null);
+let settings = { ...DEFAULT_SETTINGS };
+let history = [];
 let editingMealId = null;
 let editingDayIndex = null;
 
@@ -170,14 +200,23 @@ function showToast(message) {
 function showApp() { document.body.className = "state-ready"; }
 function showLoadError() { document.body.className = "state-error"; }
 
+function applySettings() {
+  document.body.classList.toggle("dark-mode", !!settings.darkMode);
+  updateNomAudioSrc();
+}
+
 async function init() {
   try {
-    const [remoteMeals, remoteWeek] = await Promise.all([
+    const [remoteMeals, remoteWeek, remoteSettings, remoteHistory] = await Promise.all([
       stateGet("meals", []),
       stateGet("week", Array(7).fill(null)),
+      stateGet("settings", DEFAULT_SETTINGS),
+      stateGet("history", []),
     ]);
     meals = remoteMeals;
     week = remoteWeek;
+    settings = { ...DEFAULT_SETTINGS, ...remoteSettings };
+    history = remoteHistory;
 
     // fresh database: seed it from whatever this device already had saved locally
     if (meals.length === 0) {
@@ -196,9 +235,11 @@ async function init() {
     showLoadError();
     return;
   }
+  applySettings();
   showApp();
   renderWeek();
   renderMeals();
+  renderSettingsView();
 }
 document.getElementById("retryBtn").addEventListener("click", () => {
   document.body.className = "state-loading";
@@ -213,17 +254,26 @@ function mealByName(name) {
   return meals.find(m => m.name.trim().toLowerCase() === key) || null;
 }
 
+// Favourite meals appear more often in the shuffle deck; everything else appears once.
+function weightedDeck(excludeNames) {
+  const pool = meals.filter(m => !excludeNames.has(m.name));
+  const usePool = pool.length > 0 ? pool : meals; // don't let exclusion empty the deck entirely
+  return usePool.flatMap(m => Array(m.favourite ? 3 : 1).fill(m.name));
+}
+
 function pickWeek() {
-  const names = meals.map(m => m.name);
-  const result = week.map(d => d && d.locked ? d : null);
+  const result = week.map(d => d && (d.locked || d.eatingOut) ? d : null);
   const slotsToFill = [];
   result.forEach((d, i) => { if (!d) slotsToFill.push(i); });
+
+  // avoid repeating meals from the last couple of shuffles where possible
+  const recentNames = new Set(history.flat());
 
   let deck = [];
   let lastPicked = null;
   slotsToFill.forEach((i) => {
     if (deck.length === 0) {
-      deck = [...names].sort(() => Math.random() - 0.5);
+      deck = weightedDeck(recentNames).sort(() => Math.random() - 0.5);
       if (lastPicked && deck[0] === lastPicked && deck.length > 1) {
         [deck[0], deck[1]] = [deck[1], deck[0]];
       }
@@ -253,15 +303,15 @@ function renderWeek() {
       <div class="day-badge" style="background:${col.bg}; color:${col.fg};">${day}</div>
       <button class="day-meal-btn" data-open="${i}">
         <div class="day-meal ${d ? "" : "empty"}">${d ? getMealEmoji(d.text) + " " + escapeHtml(d.text) : "🎲 Not decided yet"}</div>
-        ${d && d.locked ? `<div class="lock-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a5 5 0 00-5 5v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1V7a5 5 0 00-5-5zm-3 8V7a3 3 0 016 0v3z"/></svg>Locked</div>` : ""}
+        ${d && d.eatingOut ? `<div class="lock-tag eating-out-tag">🥡 Eating out</div>` : (d && d.locked ? `<div class="lock-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a5 5 0 00-5 5v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1V7a5 5 0 00-5-5zm-3 8V7a3 3 0 016 0v3z"/></svg>Locked</div>` : "")}
       </button>
       <div class="day-actions">
         ${(d && !d.locked) ? `<button class="reroll-btn" data-reroll="${i}" aria-label="Reroll ${day}">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.5 9a9 9 0 0114.85-3.36L23 10M1 14l4.65 4.36A9 9 0 0020.5 15"/></svg>
         </button>` : ""}
-        <button class="lock-btn ${d && d.locked ? "active" : ""}" data-lock="${i}" aria-label="${d && d.locked ? "Unlock" : "Lock"} ${day}">
+        ${d && d.eatingOut ? "" : `<button class="lock-btn ${d && d.locked ? "active" : ""}" data-lock="${i}" aria-label="${d && d.locked ? "Unlock" : "Lock"} ${day}">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a5 5 0 00-5 5v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1V7a5 5 0 00-5-5zm-3 8V7a3 3 0 016 0v3z"/></svg>
-        </button>
+        </button>`}
       </div>
     `;
     list.appendChild(row);
@@ -282,6 +332,7 @@ function renderWeek() {
 
 function toggleLock(i) {
   if (!week[i]) return; // nothing to lock
+  if (week[i].eatingOut) return; // eating-out days are locked by design - edit the day to change it
   week[i] = { ...week[i], locked: !week[i].locked };
   saveWeek(week);
   renderWeek();
@@ -295,20 +346,22 @@ function shuffleAll() {
   setTimeout(() => {
     week = pickWeek();
     saveWeek(week);
+    saveHistory([week.filter(d => d && !d.eatingOut).map(d => d.text), ...history].slice(0, 2));
     renderWeek();
     btn.classList.remove("pop", "spin");
-    spawnConfetti(btn);
+    if (settings.confetti !== false) spawnConfetti(btn);
     document.getElementById("pageSubtitle").textContent = FUN_MESSAGES[Math.floor(Math.random() * FUN_MESSAGES.length)];
   }, 380);
 }
 
 function rerollDay(i) {
   if (meals.length === 0) return;
-  if (week[i] && week[i].locked) return;
+  if (week[i] && (week[i].locked || week[i].eatingOut)) return;
   const currentText = week[i] ? week[i].text : null;
   const others = meals.filter(m => m.name !== currentText);
   const pool = others.length ? others : meals;
-  const next = pool[Math.floor(Math.random() * pool.length)];
+  const weighted = pool.flatMap(m => Array(m.favourite ? 3 : 1).fill(m));
+  const next = weighted[Math.floor(Math.random() * weighted.length)];
   week[i] = { text: next.name, locked: false };
   saveWeek(week);
   renderWeek();
@@ -330,7 +383,7 @@ document.getElementById("resetWeekBtn").addEventListener("click", resetWeek);
 function buildShoppingList() {
   const seen = new Map();
   week.forEach(d => {
-    if (!d) return;
+    if (!d || d.eatingOut) return;
     const meal = mealByName(d.text);
     if (!meal) return;
     (meal.ingredients || []).forEach(ing => {
@@ -377,7 +430,7 @@ document.getElementById("copyBtn").addEventListener("click", async () => {
 // ---- Day modal ----
 function populateQuickPick() {
   const sel = document.getElementById("dayQuickPick");
-  sel.innerHTML = `<option value="">Choose a favourite…</option>` +
+  sel.innerHTML = `<option value="">Choose a saved meal…</option>` +
     meals.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join("");
 }
 
@@ -387,6 +440,7 @@ function openDayModal(i) {
   document.getElementById("dayModalTitle").textContent = "Edit " + DAYS[i];
   document.getElementById("dayTextInput").value = d ? d.text : "";
   document.getElementById("dayLockCheckbox").checked = !!(d && d.locked);
+  document.getElementById("dayEatingOutCheckbox").checked = !!(d && d.eatingOut);
   populateQuickPick();
   document.getElementById("dayQuickPick").value = "";
   document.getElementById("dayModalOverlay").classList.add("active");
@@ -398,6 +452,12 @@ function closeDayModal() {
 }
 document.getElementById("dayQuickPick").addEventListener("change", (e) => {
   if (e.target.value) document.getElementById("dayTextInput").value = e.target.value;
+});
+document.getElementById("dayEatingOutCheckbox").addEventListener("change", (e) => {
+  const textInput = document.getElementById("dayTextInput");
+  if (e.target.checked && !textInput.value.trim()) {
+    textInput.value = "Takeaway";
+  }
 });
 document.getElementById("dayModalOverlay").addEventListener("click", (e) => {
   if (e.target.id === "dayModalOverlay") closeDayModal();
@@ -412,11 +472,12 @@ document.getElementById("dayClearBtn").addEventListener("click", () => {
 document.getElementById("daySaveBtn").addEventListener("click", () => {
   if (editingDayIndex === null) return;
   const text = document.getElementById("dayTextInput").value.trim();
-  const locked = document.getElementById("dayLockCheckbox").checked;
+  const eatingOut = document.getElementById("dayEatingOutCheckbox").checked;
+  const locked = document.getElementById("dayLockCheckbox").checked || eatingOut;
   if (!text) {
     week[editingDayIndex] = null;
   } else {
-    week[editingDayIndex] = { text, locked };
+    week[editingDayIndex] = { text, locked, eatingOut };
   }
   saveWeek(week);
   closeDayModal();
@@ -435,6 +496,9 @@ function renderMeals() {
       <div class="meal-card-top">
         <div class="meal-name">${getMealEmoji(m.name)} ${escapeHtml(m.name)}</div>
         <div class="meal-card-actions">
+          <button class="icon-btn fav-btn ${m.favourite ? "active" : ""}" data-fav="${m.id}" aria-label="${m.favourite ? "Unfavourite" : "Favourite"} ${escapeHtml(m.name)}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="${m.favourite ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </button>
           <button class="icon-btn" data-edit="${m.id}" aria-label="Edit ${escapeHtml(m.name)}">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>
           </button>
@@ -447,12 +511,23 @@ function renderMeals() {
     </div>
   `).join("");
 
+  list.querySelectorAll("[data-fav]").forEach(btn => {
+    btn.addEventListener("click", () => toggleFavourite(btn.dataset.fav));
+  });
   list.querySelectorAll("[data-edit]").forEach(btn => {
     btn.addEventListener("click", () => openMealModal(btn.dataset.edit));
   });
   list.querySelectorAll("[data-del]").forEach(btn => {
     btn.addEventListener("click", () => deleteMeal(btn.dataset.del));
   });
+}
+
+function toggleFavourite(id) {
+  const meal = mealById(id);
+  if (!meal) return;
+  meal.favourite = !meal.favourite;
+  saveMeals(meals);
+  renderMeals();
 }
 
 function deleteMeal(id) {
@@ -467,12 +542,12 @@ function deleteMeal(id) {
   renderWeek();
 }
 
-function openMealModal(id) {
+function openMealModal(id, prefill) {
   editingMealId = id || null;
   const meal = id ? mealById(id) : null;
   document.getElementById("mealModalTitle").textContent = id ? "Edit meal" : "Add a meal";
-  document.getElementById("mealNameInput").value = meal ? meal.name : "";
-  document.getElementById("mealIngInput").value = meal ? (meal.ingredients || []).join("\n") : "";
+  document.getElementById("mealNameInput").value = meal ? meal.name : (prefill ? prefill.name : "");
+  document.getElementById("mealIngInput").value = meal ? (meal.ingredients || []).join("\n") : (prefill ? prefill.ingredients.join("\n") : "");
   document.getElementById("mealModalOverlay").classList.add("active");
   document.getElementById("mealNameInput").focus();
 }
@@ -564,6 +639,7 @@ document.getElementById("restoreFileInput").addEventListener("change", (e) => {
       id: typeof m.id === "string" ? m.id : uid(),
       name: m.name,
       ingredients: Array.isArray(m.ingredients) ? m.ingredients.filter(i => typeof i === "string") : [],
+      favourite: !!m.favourite,
     }));
     saveMeals(meals);
     renderMeals();
@@ -571,6 +647,116 @@ document.getElementById("restoreFileInput").addEventListener("change", (e) => {
     input.value = "";
   };
   reader.readAsText(file);
+});
+
+// ---- Suggest a meal from the web ----
+let currentSuggestion = null;
+
+async function fetchSuggestion() {
+  const content = document.getElementById("suggestContent");
+  const addBtn = document.getElementById("suggestAddBtn");
+  content.innerHTML = `<p class="hint">Fetching an idea…</p>`;
+  addBtn.disabled = true;
+  try {
+    const res = await fetch("https://www.themealdb.com/api/json/v1/1/random.php");
+    if (!res.ok) throw new Error("bad status");
+    const data = await res.json();
+    const meal = data.meals[0];
+    const ingredients = [];
+    for (let i = 1; i <= 20; i++) {
+      const ing = meal[`strIngredient${i}`];
+      const meas = meal[`strMeasure${i}`];
+      if (ing && ing.trim()) {
+        ingredients.push(`${(meas || "").trim()} ${ing.trim()}`.trim());
+      }
+    }
+    currentSuggestion = { name: meal.strMeal, ingredients };
+    content.innerHTML = `
+      <img src="${escapeHtml(meal.strMealThumb)}" alt="" class="suggest-photo">
+      <div class="suggest-name">${getMealEmoji(meal.strMeal)} ${escapeHtml(meal.strMeal)}</div>
+      <ul class="suggest-ing">${ingredients.map(i => `<li>${escapeHtml(i)}</li>`).join("")}</ul>
+    `;
+    addBtn.disabled = false;
+  } catch (e) {
+    currentSuggestion = null;
+    content.innerHTML = `<p class="hint">Couldn't fetch an idea — check your connection and try again.</p>`;
+  }
+}
+function openSuggestModal() {
+  document.getElementById("suggestModalOverlay").classList.add("active");
+  fetchSuggestion();
+}
+function closeSuggestModal() {
+  document.getElementById("suggestModalOverlay").classList.remove("active");
+}
+document.getElementById("suggestMealBtn").addEventListener("click", openSuggestModal);
+document.getElementById("suggestAnotherBtn").addEventListener("click", fetchSuggestion);
+document.getElementById("suggestModalOverlay").addEventListener("click", (e) => {
+  if (e.target.id === "suggestModalOverlay") closeSuggestModal();
+});
+document.getElementById("suggestAddBtn").addEventListener("click", () => {
+  if (!currentSuggestion) return;
+  closeSuggestModal();
+  openMealModal(null, currentSuggestion);
+});
+
+// ---- Settings ----
+function renderSoundOptions() {
+  const container = document.getElementById("soundOptions");
+  container.innerHTML = SOUND_OPTIONS.map(opt => `
+    <div class="sound-option ${settings.sound === opt.id ? "active" : ""}" data-sound="${opt.id}">
+      <div class="sound-radio"></div>
+      <div class="sound-label">${escapeHtml(opt.label)}</div>
+      <button class="icon-btn preview-btn" data-preview="${opt.id}" aria-label="Preview ${escapeHtml(opt.label)}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+    </div>
+  `).join("");
+  container.querySelectorAll("[data-sound]").forEach(row => {
+    row.addEventListener("click", () => {
+      settings.sound = row.dataset.sound;
+      saveSettings(settings);
+      updateNomAudioSrc();
+      renderSoundOptions();
+    });
+  });
+  container.querySelectorAll("[data-preview]").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      previewSound(btn.dataset.preview);
+    });
+  });
+}
+
+function renderSettingsView() {
+  document.getElementById("muteToggle").checked = !!settings.muted;
+  document.getElementById("confettiToggle").checked = settings.confetti !== false;
+  document.getElementById("darkModeToggle").checked = !!settings.darkMode;
+  renderSoundOptions();
+}
+
+document.getElementById("muteToggle").addEventListener("change", (e) => {
+  settings.muted = e.target.checked;
+  saveSettings(settings);
+});
+document.getElementById("confettiToggle").addEventListener("change", (e) => {
+  settings.confetti = e.target.checked;
+  saveSettings(settings);
+});
+document.getElementById("darkModeToggle").addEventListener("change", (e) => {
+  settings.darkMode = e.target.checked;
+  saveSettings(settings);
+  applySettings();
+});
+document.getElementById("resetDataBtn").addEventListener("click", async () => {
+  const ok = confirm("This permanently erases all your meals and this week's plan, and starts fresh with the defaults. Are you sure?");
+  if (!ok) return;
+  meals = STARTER_MEALS.map(m => ({ ...m }));
+  week = Array(7).fill(null);
+  await Promise.all([saveMeals(meals), saveWeek(week), saveHistory([])]);
+  renderMeals();
+  renderWeek();
+  showToast("All data reset.");
 });
 
 // ---- Nav ----
@@ -582,11 +768,13 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
     document.getElementById("planView").classList.toggle("active", target === "plan");
     document.getElementById("shopView").classList.toggle("active", target === "shop");
     document.getElementById("mealsView").classList.toggle("active", target === "meals");
-    const titles = { plan: "What's for tea? 🍲", shop: "Shopping list 🛒", meals: "My meals 📖" };
+    document.getElementById("settingsView").classList.toggle("active", target === "settings");
+    const titles = { plan: "What's for tea? 🍲", shop: "Shopping list 🛒", meals: "My meals 📖", settings: "Settings ⚙️" };
     const subtitles = {
       plan: "Tap the button, get a week of dinners.",
       shop: "Everything you need for the week ahead.",
       meals: "Define your favourites and their ingredients.",
+      settings: "Make it yours.",
     };
     document.getElementById("pageTitle").textContent = titles[target];
     document.getElementById("pageSubtitle").textContent = subtitles[target];

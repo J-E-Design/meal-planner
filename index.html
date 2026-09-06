@@ -63,12 +63,42 @@
   <!-- MEALS VIEW -->
   <div class="view" id="mealsView">
     <div id="mealsList"></div>
+    <button class="add-meal-btn" id="suggestMealBtn">🌐 Suggest a meal from the web</button>
     <button class="add-meal-btn" id="addMealBtn">🍽️ Add a meal</button>
     <div class="shop-actions backup-actions">
       <button class="btn-secondary" id="backupMealsBtn">⬇️ Backup</button>
       <button class="btn-primary" id="restoreMealsBtn">⬆️ Restore</button>
     </div>
     <input type="file" id="restoreFileInput" accept="application/json,.json" hidden>
+  </div>
+
+  <!-- SETTINGS VIEW -->
+  <div class="view" id="settingsView">
+    <div class="settings-section">
+      <h2 class="settings-heading">🔊 Shuffle sound</h2>
+      <div id="soundOptions"></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="toggle-row">
+        <label for="muteToggle">Mute shuffle sound</label>
+        <input type="checkbox" id="muteToggle" class="switch">
+      </div>
+      <div class="toggle-row">
+        <label for="confettiToggle">Confetti on shuffle</label>
+        <input type="checkbox" id="confettiToggle" class="switch">
+      </div>
+      <div class="toggle-row">
+        <label for="darkModeToggle">Dark mode</label>
+        <input type="checkbox" id="darkModeToggle" class="switch">
+      </div>
+    </div>
+
+    <div class="settings-section danger-zone">
+      <h2 class="settings-heading">⚠️ Danger zone</h2>
+      <button class="btn-danger-outline" id="resetDataBtn" style="width:100%;">Reset all data</button>
+      <p class="hint">Erases all meals and this week's plan, and starts fresh with the defaults.</p>
+    </div>
   </div>
 
 </div>
@@ -85,6 +115,10 @@
   <button class="nav-btn" data-view="meals">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5a2 2 0 012-2h9l5 5v11a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M14 3v5h5"/></svg>
     My meals
+  </button>
+  <button class="nav-btn" data-view="settings">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    Settings
   </button>
 </div>
 
@@ -109,10 +143,16 @@
     <h2 id="dayModalTitle">Edit day</h2>
     <label class="field-label">Meal</label>
     <input class="field-input" id="dayTextInput" placeholder="Type a meal, e.g. Takeaway">
-    <label class="field-label">Or pick a favourite</label>
+    <label class="field-label">Or pick a saved meal</label>
     <select class="field-select" id="dayQuickPick">
-      <option value="">Choose a favourite…</option>
+      <option value="">Choose a saved meal…</option>
     </select>
+    <div class="lock-row">
+      <input type="checkbox" id="dayEatingOutCheckbox">
+      <label for="dayEatingOutCheckbox">🥡 Eating out / takeaway
+        <span class="sub">No ingredients needed - also locks the day</span>
+      </label>
+    </div>
     <div class="lock-row">
       <input type="checkbox" id="dayLockCheckbox">
       <label for="dayLockCheckbox">Lock this day
@@ -122,6 +162,18 @@
     <div class="modal-actions">
       <button class="btn-danger-outline" id="dayClearBtn">Clear day</button>
       <button class="btn-primary" id="daySaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Suggest-a-meal modal -->
+<div class="modal-overlay" id="suggestModalOverlay">
+  <div class="modal">
+    <h2>🌐 Meal idea</h2>
+    <div id="suggestContent"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="suggestAnotherBtn">Try another</button>
+      <button class="btn-primary" id="suggestAddBtn">Add to my meals</button>
     </div>
   </div>
 </div>
