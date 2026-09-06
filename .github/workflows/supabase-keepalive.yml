@@ -1,3 +1,4 @@
+# Pings the Supabase project on a schedule so the free tier doesn't auto-pause it.
 name: Keep Supabase project awake
 
 on:
