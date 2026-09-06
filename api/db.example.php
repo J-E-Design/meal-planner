@@ -47,6 +47,13 @@ function state_set(string $name, $value): void {
     $stmt->execute([':name' => $name, ':value' => json_encode($value)]);
 }
 
+function send_cors_headers(): void {
+    // The app shell is hosted on GitHub Pages; this API only needs to answer that origin.
+    header("Access-Control-Allow-Origin: https://j-e-design.github.io");
+    header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type");
+}
+
 function send_json($data, int $status = 200): void {
     http_response_code($status);
     header('Content-Type: application/json');

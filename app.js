@@ -93,8 +93,9 @@ const STARTER_MEALS = [
 ];
 
 // ---- Server-backed storage (PHP + MySQL) ----
-const API_MEALS = "api/meals.php";
-const API_WEEK = "api/week.php";
+const API_BASE = "https://meal-planner.free.je/api";
+const API_MEALS = API_BASE + "/meals.php";
+const API_WEEK = API_BASE + "/week.php";
 
 async function apiGet(url) {
   const res = await fetch(url);

@@ -1,8 +1,15 @@
 <?php
 require_once __DIR__ . '/db.php';
 
+send_cors_headers();
+
 try {
     $method = $_SERVER['REQUEST_METHOD'];
+
+    if ($method === 'OPTIONS') {
+        http_response_code(204);
+        exit;
+    }
 
     if ($method === 'GET') {
         send_json(state_get('meals', []));
