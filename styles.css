@@ -126,6 +126,7 @@
     border-radius: 16px; padding: 14px; font-size: 15px; cursor: pointer; font-family: inherit;
     display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 6px;
   }
+  .backup-actions { margin-top: 22px; }
 
   /* Modal */
   .modal-overlay {

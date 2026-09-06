@@ -454,6 +454,67 @@ document.getElementById("mealSaveBtn").addEventListener("click", () => {
   renderWeek();
 });
 
+// ---- Backup / restore ----
+document.getElementById("backupMealsBtn").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(meals, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `meal-planner-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById("restoreMealsBtn").addEventListener("click", () => {
+  document.getElementById("restoreFileInput").click();
+});
+
+document.getElementById("restoreFileInput").addEventListener("change", (e) => {
+  const input = e.target;
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onerror = () => {
+    alert("Couldn't read that file.");
+    input.value = "";
+  };
+  reader.onload = () => {
+    let parsed;
+    try {
+      parsed = JSON.parse(reader.result);
+    } catch (err) {
+      alert("That file doesn't look like a valid backup.");
+      input.value = "";
+      return;
+    }
+    if (!Array.isArray(parsed) || !parsed.every(m => m && typeof m.name === "string")) {
+      alert("That file doesn't look like a valid meals backup.");
+      input.value = "";
+      return;
+    }
+    const ok = confirm(
+      `Replace your current ${meals.length} meal(s) with the ${parsed.length} meal(s) from this backup?`
+    );
+    if (!ok) {
+      input.value = "";
+      return;
+    }
+    meals = parsed.map(m => ({
+      id: typeof m.id === "string" ? m.id : uid(),
+      name: m.name,
+      ingredients: Array.isArray(m.ingredients) ? m.ingredients.filter(i => typeof i === "string") : [],
+    }));
+    saveMeals(meals);
+    renderMeals();
+    renderWeek();
+    input.value = "";
+  };
+  reader.readAsText(file);
+});
+
 // ---- Nav ----
 document.querySelectorAll(".nav-btn").forEach(btn => {
   btn.addEventListener("click", () => {
