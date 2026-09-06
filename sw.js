@@ -1,5 +1,5 @@
-const CACHE = "meal-planner-v7";
-const FILES = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.json", "./icon-192.png", "./icon-512.png"];
+const CACHE = "meal-planner-v8";
+const FILES = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.json", "./icon-192.png", "./icon-512.png", "./nom.mp3"];
 
 // Fetch and cache one file at a time, each with a timeout, so a single slow
 // or blocked request (some free hosts rate-limit request bursts) can't hang
