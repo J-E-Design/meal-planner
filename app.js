@@ -200,6 +200,39 @@ function showToast(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove("show"), 3000);
 }
+
+function showConfirm(message, opts = {}) {
+  const { title = "Are you sure?", confirmLabel = "Confirm", cancelLabel = "Cancel", danger = true } = opts;
+  return new Promise((resolve) => {
+    const overlay = document.getElementById("confirmModalOverlay");
+    const okBtn = document.getElementById("confirmOkBtn");
+    const cancelBtn = document.getElementById("confirmCancelBtn");
+    document.getElementById("confirmModalTitle").textContent = title;
+    document.getElementById("confirmModalMessage").textContent = message;
+    okBtn.textContent = confirmLabel;
+    okBtn.className = danger ? "btn-danger" : "btn-primary";
+    cancelBtn.textContent = cancelLabel;
+    cancelBtn.style.display = cancelLabel ? "" : "none";
+    overlay.classList.add("active");
+
+    function cleanup(result) {
+      overlay.classList.remove("active");
+      okBtn.removeEventListener("click", onOk);
+      cancelBtn.removeEventListener("click", onCancel);
+      overlay.removeEventListener("click", onOverlay);
+      resolve(result);
+    }
+    function onOk() { cleanup(true); }
+    function onCancel() { cleanup(false); }
+    function onOverlay(e) { if (e.target === overlay) cleanup(false); }
+    okBtn.addEventListener("click", onOk);
+    cancelBtn.addEventListener("click", onCancel);
+    overlay.addEventListener("click", onOverlay);
+  });
+}
+function showAlert(message, title = "Heads up") {
+  return showConfirm(message, { title, confirmLabel: "OK", cancelLabel: null, danger: false });
+}
 function setBodyState(state) {
   document.body.classList.remove("state-loading", "state-ready", "state-error");
   document.body.classList.add(state);
@@ -379,8 +412,12 @@ function rerollDay(i) {
   }
 }
 
-function resetWeek() {
-  if (!confirm("Clear this week's plan? Locked and eating-out days will stay put.")) return;
+async function resetWeek() {
+  const ok = await showConfirm("Locked and eating-out days will stay put.", {
+    title: "Clear this week's plan?",
+    confirmLabel: "Clear week",
+  });
+  if (!ok) return;
   week = week.map(d => d && (d.locked || d.eatingOut) ? d : null);
   saveWeek(week);
   renderWeek();
@@ -430,7 +467,7 @@ document.getElementById("copyBtn").addEventListener("click", async () => {
     btn.textContent = "Copied!";
     setTimeout(() => btn.textContent = original, 1400);
   } catch (e) {
-    alert(text);
+    showAlert(text, "Couldn't copy automatically - here's your list");
   }
 });
 
@@ -515,6 +552,7 @@ function renderMeals() {
         </div>
       </div>
       <div class="meal-ing">${(m.ingredients||[]).map(escapeHtml).join(", ") || "No ingredients added"}</div>
+      ${m.sourceUrl ? `<a href="${escapeHtml(m.sourceUrl)}" target="_blank" rel="noopener" class="meal-recipe-link">📖 Recipe</a>` : ""}
     </div>
   `).join("");
 
@@ -549,9 +587,12 @@ function deleteMeal(id) {
   renderWeek();
 }
 
+let editingMealSourceUrl = null;
+
 function openMealModal(id, prefill) {
   editingMealId = id || null;
   const meal = id ? mealById(id) : null;
+  editingMealSourceUrl = meal ? (meal.sourceUrl || null) : (prefill && prefill.sourceUrl) || null;
   document.getElementById("mealModalTitle").textContent = id ? "Edit meal" : "Add a meal";
   document.getElementById("mealNameInput").value = meal ? meal.name : (prefill ? prefill.name : "");
   document.getElementById("mealIngInput").value = meal ? (meal.ingredients || []).join("\n") : (prefill ? prefill.ingredients.join("\n") : "");
@@ -561,6 +602,7 @@ function openMealModal(id, prefill) {
 function closeMealModal() {
   document.getElementById("mealModalOverlay").classList.remove("active");
   editingMealId = null;
+  editingMealSourceUrl = null;
 }
 document.getElementById("addMealBtn").addEventListener("click", () => openMealModal(null));
 document.getElementById("mealCancelBtn").addEventListener("click", closeMealModal);
@@ -586,7 +628,7 @@ document.getElementById("mealSaveBtn").addEventListener("click", () => {
       saveWeek(week);
     }
   } else {
-    meals.push({ id: uid(), name, ingredients });
+    meals.push({ id: uid(), name, ingredients, sourceUrl: editingMealSourceUrl || undefined });
   }
   saveMeals(meals);
   closeMealModal();
@@ -617,26 +659,27 @@ document.getElementById("restoreFileInput").addEventListener("change", (e) => {
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onerror = () => {
-    alert("Couldn't read that file.");
+  reader.onerror = async () => {
+    await showAlert("Couldn't read that file.");
     input.value = "";
   };
-  reader.onload = () => {
+  reader.onload = async () => {
     let parsed;
     try {
       parsed = JSON.parse(reader.result);
     } catch (err) {
-      alert("That file doesn't look like a valid backup.");
+      await showAlert("That file doesn't look like a valid backup.");
       input.value = "";
       return;
     }
     if (!Array.isArray(parsed) || !parsed.every(m => m && typeof m.name === "string")) {
-      alert("That file doesn't look like a valid meals backup.");
+      await showAlert("That file doesn't look like a valid meals backup.");
       input.value = "";
       return;
     }
-    const ok = confirm(
-      `Replace your current ${meals.length} meal(s) with the ${parsed.length} meal(s) from this backup?`
+    const ok = await showConfirm(
+      `Replace your current ${meals.length} meal(s) with the ${parsed.length} meal(s) from this backup?`,
+      { title: "Restore from backup?", confirmLabel: "Replace" }
     );
     if (!ok) {
       input.value = "";
@@ -647,6 +690,7 @@ document.getElementById("restoreFileInput").addEventListener("change", (e) => {
       name: m.name,
       ingredients: Array.isArray(m.ingredients) ? m.ingredients.filter(i => typeof i === "string") : [],
       favourite: !!m.favourite,
+      sourceUrl: typeof m.sourceUrl === "string" ? m.sourceUrl : undefined,
     }));
     saveMeals(meals);
     renderMeals();
@@ -686,9 +730,9 @@ async function fetchSuggestion() {
         ingredients.push(`${(meas || "").trim()} ${ing.trim()}`.trim());
       }
     }
-    currentSuggestion = { name: meal.strMeal, ingredients };
     const readMoreUrl = (meal.strSource && meal.strSource.trim())
       || `https://www.themealdb.com/meal/${meal.idMeal}`;
+    currentSuggestion = { name: meal.strMeal, ingredients, sourceUrl: readMoreUrl };
     content.innerHTML = `
       <img src="${escapeHtml(meal.strMealThumb)}" alt="" class="suggest-photo">
       <div class="suggest-name">${getMealEmoji(meal.strMeal)} ${escapeHtml(meal.strMeal)}</div>
@@ -787,7 +831,10 @@ document.getElementById("darkModeToggle").addEventListener("change", (e) => {
   applySettings();
 });
 document.getElementById("resetDataBtn").addEventListener("click", async () => {
-  const ok = confirm("This permanently erases all your meals and this week's plan, and starts fresh with the defaults. Are you sure?");
+  const ok = await showConfirm(
+    "This permanently erases all your meals and this week's plan, and starts fresh with the defaults.",
+    { title: "Reset all data?", confirmLabel: "Reset everything" }
+  );
   if (!ok) return;
   meals = STARTER_MEALS.map(m => ({ ...m }));
   week = Array(7).fill(null);

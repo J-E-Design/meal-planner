@@ -139,8 +139,14 @@
     border: 1.5px solid #F0C9B8; background: transparent; color: #B4472E; font-weight: 700;
     border-radius: 12px; padding: 11px; font-size: 14px; cursor: pointer; font-family: inherit;
   }
-  .btn-secondary:active, .btn-primary:active, .btn-danger-outline:active { transform: scale(0.97); }
-  .btn-primary:disabled, .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-danger {
+    flex: 1; border: none; background: #B4472E; color: #fff; font-weight: 700;
+    border-radius: 12px; padding: 11px; font-size: 14px; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-secondary:active, .btn-primary:active, .btn-danger-outline:active, .btn-danger:active { transform: scale(0.97); }
+  .btn-primary:disabled, .btn-secondary:disabled, .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .confirm-message { font-size: 14px; color: var(--muted); line-height: 1.6; margin: 0 0 18px; }
 
   /* Meals view */
   .meal-card {
@@ -149,6 +155,7 @@
   .meal-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; gap: 8px; }
   .meal-name { font-weight: 700; font-size: 16px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .meal-ing { font-size: 13px; color: var(--muted); font-weight: 600; line-height: 1.5; }
+  .meal-recipe-link { display: inline-block; margin-top: 6px; font-size: 12px; font-weight: 700; color: #B4472E; text-decoration: none; }
   .meal-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
   .icon-btn {
     border: none; background: var(--row-bg); width: 30px; height: 30px; border-radius: 9px;
