@@ -1,4 +1,4 @@
-const CACHE = "meal-planner-v6";
+const CACHE = "meal-planner-v7";
 const FILES = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 // Fetch and cache one file at a time, each with a timeout, so a single slow
@@ -33,8 +33,10 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  // API calls always need live data - never cache or fall back to a stale copy.
-  if (event.request.url.includes("/api/")) {
+  // The database lives on a different origin (Supabase) and always needs live
+  // data - never cache or fall back to a stale copy. Only manage our own
+  // same-origin app-shell files here.
+  if (new URL(event.request.url).origin !== self.location.origin) {
     return;
   }
   event.respondWith(

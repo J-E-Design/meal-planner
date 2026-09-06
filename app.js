@@ -92,30 +92,40 @@ const STARTER_MEALS = [
   { id: "m5", name: "Pizza night", ingredients: ["Pizza bases","Mozzarella","Passata","Toppings of choice"] },
 ];
 
-// ---- Server-backed storage (PHP + MySQL) ----
-const API_BASE = "https://meal-planner.free.je/api";
-const API_MEALS = API_BASE + "/meals.php";
-const API_WEEK = API_BASE + "/week.php";
+// ---- Server-backed storage (Supabase) ----
+const SUPABASE_URL = "https://fqyacrjfyqfpqbfungqh.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxeWFjcmpmeXFmcHFiZnVuZ3FoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDM3MDIsImV4cCI6MjEwNDI3OTcwMn0.wWaW18-IiNSvHcx8CSD1zKMQMrtY23gtMDUUUqiqKRw";
+const SUPABASE_HEADERS = {
+  apikey: SUPABASE_ANON_KEY,
+  Authorization: "Bearer " + SUPABASE_ANON_KEY,
+};
 
-async function apiGet(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("GET " + url + " failed: " + res.status);
-  return res.json();
+async function stateGet(name, fallback) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/app_state?name=eq.${name}&select=value`,
+    { headers: SUPABASE_HEADERS }
+  );
+  if (!res.ok) throw new Error("GET " + name + " failed: " + res.status);
+  const rows = await res.json();
+  return rows.length ? rows[0].value : fallback;
 }
-async function apiPost(url, body) {
-  const res = await fetch(url, {
+async function stateSet(name, value) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/app_state`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    headers: {
+      ...SUPABASE_HEADERS,
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates,return=minimal",
+    },
+    body: JSON.stringify({ name, value }),
   });
-  if (!res.ok) throw new Error("POST " + url + " failed: " + res.status);
-  return res.json();
+  if (!res.ok) throw new Error("SET " + name + " failed: " + res.status);
 }
 
 async function saveMeals(m) {
   meals = m;
   try {
-    await apiPost(API_MEALS, m);
+    await stateSet("meals", m);
   } catch (e) {
     showToast("Couldn't save your meals — check your connection.");
   }
@@ -123,7 +133,7 @@ async function saveMeals(m) {
 async function saveWeek(w) {
   week = w;
   try {
-    await apiPost(API_WEEK, w);
+    await stateSet("week", w);
   } catch (e) {
     showToast("Couldn't save your week — check your connection.");
   }
@@ -162,7 +172,10 @@ function showLoadError() { document.body.className = "state-error"; }
 
 async function init() {
   try {
-    const [remoteMeals, remoteWeek] = await Promise.all([apiGet(API_MEALS), apiGet(API_WEEK)]);
+    const [remoteMeals, remoteWeek] = await Promise.all([
+      stateGet("meals", []),
+      stateGet("week", Array(7).fill(null)),
+    ]);
     meals = remoteMeals;
     week = remoteWeek;
 
@@ -170,13 +183,13 @@ async function init() {
     if (meals.length === 0) {
       const legacy = readLegacyLocalMeals();
       meals = (legacy && legacy.length) ? legacy : STARTER_MEALS;
-      await apiPost(API_MEALS, meals);
+      await stateSet("meals", meals);
     }
     if (week.every(d => d === null)) {
       const legacy = readLegacyLocalWeek();
       if (legacy && legacy.some(d => d !== null)) {
         week = legacy;
-        await apiPost(API_WEEK, week);
+        await stateSet("week", week);
       }
     }
   } catch (e) {
