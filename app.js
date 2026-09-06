@@ -197,8 +197,12 @@ function showToast(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove("show"), 3000);
 }
-function showApp() { document.body.className = "state-ready"; }
-function showLoadError() { document.body.className = "state-error"; }
+function setBodyState(state) {
+  document.body.classList.remove("state-loading", "state-ready", "state-error");
+  document.body.classList.add(state);
+}
+function showApp() { setBodyState("state-ready"); }
+function showLoadError() { setBodyState("state-error"); }
 
 function applySettings() {
   document.body.classList.toggle("dark-mode", !!settings.darkMode);
@@ -242,7 +246,7 @@ async function init() {
   renderSettingsView();
 }
 document.getElementById("retryBtn").addEventListener("click", () => {
-  document.body.className = "state-loading";
+  setBodyState("state-loading");
   init();
 });
 
@@ -671,10 +675,13 @@ async function fetchSuggestion() {
       }
     }
     currentSuggestion = { name: meal.strMeal, ingredients };
+    const readMoreUrl = (meal.strSource && meal.strSource.trim())
+      || `https://www.themealdb.com/meal/${meal.idMeal}`;
     content.innerHTML = `
       <img src="${escapeHtml(meal.strMealThumb)}" alt="" class="suggest-photo">
       <div class="suggest-name">${getMealEmoji(meal.strMeal)} ${escapeHtml(meal.strMeal)}</div>
       <ul class="suggest-ing">${ingredients.map(i => `<li>${escapeHtml(i)}</li>`).join("")}</ul>
+      <a href="${escapeHtml(readMoreUrl)}" target="_blank" rel="noopener" class="suggest-link">📖 Read more about this recipe</a>
     `;
     addBtn.disabled = false;
   } catch (e) {
