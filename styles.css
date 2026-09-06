@@ -28,13 +28,15 @@
     --locked-border: #C4791A;
   }
 
-  html, body { margin: 0; padding: 0; background: var(--bg); }
+  html, body { margin: 0; padding: 0; background: var(--bg); min-height: 100%; }
+  html { height: 100%; }
   body {
     font-family: 'Nunito', system-ui, sans-serif;
     color: var(--text);
     padding-bottom: 78px;
     overflow-x: hidden;
     position: relative;
+    min-height: 100vh;
     transition: background 0.25s ease, color 0.25s ease;
   }
   body::before, body::after {
@@ -85,7 +87,7 @@
   }
 
   #weekList {
-    padding-bottom: 20px; max-height: 60vh; overflow-y: auto;
+    padding-bottom: 20px;
   }
 
   /* Day rows */

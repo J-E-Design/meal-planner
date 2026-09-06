@@ -380,8 +380,8 @@ function rerollDay(i) {
 }
 
 function resetWeek() {
-  if (!confirm("Clear the whole week, including locked days?")) return;
-  week = Array(7).fill(null);
+  if (!confirm("Clear this week's plan? Locked and eating-out days will stay put.")) return;
+  week = week.map(d => d && (d.locked || d.eatingOut) ? d : null);
   saveWeek(week);
   renderWeek();
 }
