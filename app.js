@@ -432,10 +432,19 @@ function buildShoppingList() {
     if (!meal) return;
     (meal.ingredients || []).forEach(ing => {
       const key = ing.trim().toLowerCase();
-      if (key && !seen.has(key)) seen.set(key, ing.trim());
+      if (!key) return;
+      if (seen.has(key)) {
+        seen.get(key).count++;
+      } else {
+        seen.set(key, { text: ing.trim(), count: 1 });
+      }
     });
   });
   return [...seen.values()];
+}
+
+function formatShoppingItem(item) {
+  return item.text + (item.count > 1 ? ` ×${item.count}` : "");
 }
 
 function renderShoppingList() {
@@ -445,7 +454,7 @@ function renderShoppingList() {
     ul.innerHTML = `<li style="list-style:none; margin-left:-18px; color:#B3A594; font-weight:600;">Plan your week to build a shopping list.</li>`;
     return;
   }
-  ul.innerHTML = items.map(i => `<li>${escapeHtml(i)}</li>`).join("");
+  ul.innerHTML = items.map(i => `<li>${escapeHtml(formatShoppingItem(i))}</li>`).join("");
 }
 
 function escapeHtml(str) {
@@ -459,7 +468,7 @@ document.getElementById("shuffleBtn").addEventListener("click", shuffleAll);
 document.getElementById("copyBtn").addEventListener("click", async () => {
   const items = buildShoppingList();
   if (items.length === 0) return;
-  const text = items.join("\n");
+  const text = items.map(formatShoppingItem).join("\n");
   try {
     await navigator.clipboard.writeText(text);
     const btn = document.getElementById("copyBtn");
