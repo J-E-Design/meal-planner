@@ -5,7 +5,7 @@ on:
   schedule:
     # Twice a week (Mon & Thu, 08:00 UTC) - comfortably under Supabase's
     # 7-day free-tier auto-pause window, even allowing for scheduling delays.
-    - cron: "0 8 * * 1,4"
+    - cron: "0 8,20 * * 1,3,5"
   workflow_dispatch: {}
 
 jobs:
