@@ -110,7 +110,9 @@ const STARTER_MEALS = [
 ];
 
 // ---- Server-backed storage (PHP + MySQL on our own hosting) ----
-const API_URL = "api/state.php";
+// The app shell is served from GitHub Pages; the API lives on iFastNet.
+// state.php only accepts cross-origin requests from the GitHub Pages origin.
+const API_URL = "https://jamieemerydesign.co.uk/meal-planner-api/state.php";
 
 async function stateGet(name, fallback) {
   const res = await fetch(`${API_URL}?name=${encodeURIComponent(name)}`, { cache: "no-store" });

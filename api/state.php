@@ -3,6 +3,24 @@
 //   GET  api/state.php?name=meals          -> {"value": <json>}  or {"value": null}
 //   POST api/state.php  {"name":"meals","value":<json>}  -> {"ok": true}
 
+// CORS: the app shell is hosted on GitHub Pages, so the browser calls this
+// API cross-origin. Only that origin is allowed.
+$ALLOWED_ORIGINS = ['https://j-e-design.github.io'];
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($origin, $ALLOWED_ORIGINS, true)) {
+    header("Access-Control-Allow-Origin: $origin");
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
+    header('Access-Control-Max-Age: 86400');
+}
+header('Vary: Origin');
+
+// Preflight request (sent before the JSON POST) - headers above are all it needs.
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate');
 
