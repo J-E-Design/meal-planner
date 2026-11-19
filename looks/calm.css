@@ -329,3 +329,10 @@
 [data-look="calm"] .meal-tag { font-weight: 600; font-size: 12.5px; color: #2F7FD1; }
 [data-look="calm"] .tonight-defrost { color: #fff; opacity: 0.95; }
 [data-look="calm"] .cal-buttons .btn-primary, [data-look="calm"] .cal-buttons .btn-secondary { font-size: 14px; }
+
+/* ---- Recipe import + photos ---- */
+[data-look="calm"] .import-box { background: var(--input-bg); border-radius: 16px; }
+[data-look="calm"] .import-row .field-input { background: var(--card-bg); }
+[data-look="calm"] .meal-thumb { width: 44px; height: 44px; border-radius: 12px; }
+[data-look="calm"] .meal-photo-preview { border-radius: 18px; height: 170px; }
+[data-look="calm"] .import-status { font-weight: 500; }

@@ -332,3 +332,9 @@
 [data-look="fridge"] .time-input { border-radius: 999px; background: var(--paper); font-family: var(--round); font-weight: 500; }
 [data-look="fridge"] .meal-tag { font-family: var(--hand); font-size: 17px; }
 [data-look="fridge"] .tonight-defrost { font-family: var(--hand); }
+
+/* ---- Recipe import + photos ---- */
+[data-look="fridge"] .import-box { background: var(--bg); border-radius: 10px; }
+[data-look="fridge"] .meal-thumb { border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); border: 3px solid #fff; transform: rotate(-3deg); }
+[data-look="fridge"] .meal-photo-preview { border-radius: 4px; border: 6px solid #fff; box-shadow: var(--shadow); transform: rotate(-1deg); }
+[data-look="fridge"] .import-status { font-family: var(--hand); font-size: 17px; font-weight: 700; }

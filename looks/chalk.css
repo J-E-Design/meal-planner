@@ -352,3 +352,11 @@
 [data-look="chalk"] .time-input { border-radius: 2px; background: transparent; border-color: var(--border2); font-family: var(--item); }
 [data-look="chalk"] .meal-tag { font-family: var(--label); font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); }
 [data-look="chalk"] .tonight-defrost { color: var(--accent2); }
+
+/* ---- Recipe import + photos ---- */
+[data-look="chalk"] .import-box { background: transparent; border: 1px dashed var(--border2); border-radius: 2px; }
+[data-look="chalk"] .meal-thumb { border-radius: 50%; filter: saturate(0.85); }
+[data-look="chalk"] .meal-photo-preview { border-radius: 2px; }
+[data-look="chalk"] .import-status { font-family: var(--hand); font-weight: 400; font-size: 14px; }
+[data-look="chalk"] .import-status.ok { color: var(--accent); }
+[data-look="chalk"] .import-status.error { color: var(--accent2); }

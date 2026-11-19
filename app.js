@@ -483,6 +483,7 @@ async function init() {
   renderMeals();
   renderSettingsView();
   if (!getMe()) setTimeout(openWhoModal, 600);
+  handleShareTarget();
 }
 document.getElementById("retryBtn").addEventListener("click", () => {
   setBodyState("state-loading");
@@ -1186,7 +1187,7 @@ function renderMeals() {
   list.innerHTML = shown.map(m => `
     <div class="meal-card">
       <div class="meal-card-top">
-        <div class="meal-name">${mealLabel(m.name)}</div>
+        <div class="meal-name">${m.image ? `<img class="meal-thumb" src="${escapeHtml(m.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}${m.image && !currentLook().noEmoji ? escapeHtml(m.name) : mealLabel(m.name)}</div>
         <div class="meal-card-actions">
           <button class="icon-btn fav-btn ${m.favourite ? "active" : ""}" data-fav="${m.id}" aria-label="${m.favourite ? "Unfavourite" : "Favourite"} ${escapeHtml(m.name)}">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="${m.favourite ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
@@ -1263,22 +1264,93 @@ function deleteMeal(id) {
 }
 
 let editingMealSourceUrl = null;
+let editingMealImage = null;
 
+function setMealPhoto(url) {
+  editingMealImage = url || null;
+  const img = document.getElementById("mealPhotoPreview");
+  img.hidden = !url;
+  if (url) img.src = url; else img.removeAttribute("src");
+}
 function openMealModal(id, prefill) {
   editingMealId = id || null;
   const meal = id ? mealById(id) : null;
   editingMealSourceUrl = meal ? (meal.sourceUrl || null) : (prefill && prefill.sourceUrl) || null;
+  setMealPhoto(meal ? meal.image : prefill && prefill.image);
   document.getElementById("mealModalTitle").textContent = id ? "Edit meal" : "Add a meal";
   document.getElementById("mealNameInput").value = meal ? meal.name : (prefill ? prefill.name : "");
   document.getElementById("mealIngInput").value = meal ? (meal.ingredients || []).join("\n") : (prefill ? prefill.ingredients.join("\n") : "");
   document.getElementById("mealDefrostCheckbox").checked = !!(meal && meal.defrost);
+  document.getElementById("importUrlInput").value = "";
+  document.getElementById("importStatus").textContent = "";
+  document.getElementById("importStatus").className = "import-status";
   document.getElementById("mealModalOverlay").classList.add("active");
-  document.getElementById("mealNameInput").focus();
+  document.getElementById(id || prefill ? "mealNameInput" : "importUrlInput").focus();
 }
 function closeMealModal() {
   document.getElementById("mealModalOverlay").classList.remove("active");
   editingMealId = null;
   editingMealSourceUrl = null;
+  setMealPhoto(null);
+}
+
+// ---- Import a recipe from a link (the server reads the recipe data on the page) ----
+const IMPORT_URL = "https://jamieemerydesign.co.uk/meal-planner/import.php";
+async function importRecipe(link) {
+  const status = document.getElementById("importStatus");
+  const btn = document.getElementById("importBtn");
+  const url = (link.match(/https?:\/\/\S+/i) || [""])[0].replace(/[).,]+$/, "");
+  if (!url) { status.textContent = "Paste a link that starts with https://"; status.className = "import-status error"; return; }
+  status.textContent = "Fetching the recipe…";
+  status.className = "import-status";
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${IMPORT_URL}?url=${encodeURIComponent(url)}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) throw new Error(data.error || "Couldn't import that recipe.");
+    if (data.name) document.getElementById("mealNameInput").value = data.name;
+    if (data.ingredients && data.ingredients.length) document.getElementById("mealIngInput").value = data.ingredients.join("\n");
+    editingMealSourceUrl = data.sourceUrl || url;
+    setMealPhoto(data.image || null);
+    let site = "";
+    try { site = new URL(editingMealSourceUrl).hostname.replace(/^www\./, ""); } catch (e) {}
+    const n = (data.ingredients || []).length;
+    status.textContent = n
+      ? `✓ Got ${n} ingredient${n === 1 ? "" : "s"} from ${site}${data.totalTime ? " · " + data.totalTime : ""}. Tidy them up if you like, then save.`
+      : `✓ Got the name from ${site}, but no ingredient list — add them below.`;
+    status.className = "import-status ok";
+  } catch (e) {
+    status.textContent = (e && e.message && !/fetch|network/i.test(e.message)) ? e.message : "Couldn't reach the importer — check your connection.";
+    status.className = "import-status error";
+  } finally {
+    btn.disabled = false;
+  }
+}
+document.getElementById("importForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  importRecipe(document.getElementById("importUrlInput").value);
+});
+// Pasting a link imports straight away
+document.getElementById("importUrlInput").addEventListener("paste", () => {
+  setTimeout(() => {
+    const v = document.getElementById("importUrlInput").value;
+    if (/^https?:\/\//i.test(v.trim())) importRecipe(v);
+  }, 0);
+});
+document.getElementById("mealPhotoPreview").addEventListener("error", () => setMealPhoto(null));
+
+// Shared from another app (Android "Share" -> What's for tea?)
+function handleShareTarget() {
+  const q = new URLSearchParams(location.search);
+  const shared = [q.get("share_url"), q.get("share_text"), q.get("share_title")].filter(Boolean).join(" ");
+  if (!shared) return;
+  history.replaceState(null, "", location.pathname);
+  const link = (shared.match(/https?:\/\/\S+/i) || [""])[0];
+  if (!link) return;
+  document.querySelector('.nav-btn[data-view="meals"]').click();
+  openMealModal(null);
+  document.getElementById("importUrlInput").value = link;
+  importRecipe(link);
 }
 document.getElementById("addMealBtn").addEventListener("click", () => openMealModal(null));
 document.getElementById("mealCancelBtn").addEventListener("click", closeMealModal);
@@ -1301,11 +1373,16 @@ document.getElementById("mealSaveBtn").addEventListener("click", () => {
     meal.name = name;
     meal.ingredients = ingredients;
     if (defrost) meal.defrost = true; else delete meal.defrost;
+    if (editingMealImage) meal.image = editingMealImage; else delete meal.image;
+    if (editingMealSourceUrl) meal.sourceUrl = editingMealSourceUrl;
     if (oldName && oldName !== name) {
       mapUpcomingWeeks(d => (d && d.text === oldName) ? { ...d, text: name } : d);
     }
   } else {
-    meals.push({ id: uid(), name, ingredients, sourceUrl: editingMealSourceUrl || undefined, ...(defrost ? { defrost: true } : {}) });
+    meals.push({
+      id: uid(), name, ingredients, sourceUrl: editingMealSourceUrl || undefined,
+      ...(defrost ? { defrost: true } : {}), ...(editingMealImage ? { image: editingMealImage } : {}),
+    });
   }
   saveMeals(meals);
   closeMealModal();
@@ -1450,7 +1527,7 @@ async function fetchSuggestion() {
     }
     const readMoreUrl = (meal.strSource && meal.strSource.trim())
       || `https://www.themealdb.com/meal/${meal.idMeal}`;
-    currentSuggestion = { name: meal.strMeal, ingredients, sourceUrl: readMoreUrl };
+    currentSuggestion = { name: meal.strMeal, ingredients, sourceUrl: readMoreUrl, image: meal.strMealThumb || null };
     content.innerHTML = `
       <img src="${escapeHtml(meal.strMealThumb)}" alt="" class="suggest-photo">
       <div class="suggest-name">${getMealEmoji(meal.strMeal)} ${escapeHtml(meal.strMeal)}</div>

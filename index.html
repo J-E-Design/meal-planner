@@ -228,6 +228,16 @@
 <div class="modal-overlay" id="mealModalOverlay">
   <div class="modal">
     <h2 id="mealModalTitle">Add a meal</h2>
+    <form class="import-box" id="importForm" autocomplete="off">
+      <label class="field-label" for="importUrlInput">🔗 Import from a recipe link</label>
+      <div class="import-row">
+        <input class="field-input" id="importUrlInput" type="url" inputmode="url" enterkeyhint="go"
+               placeholder="Paste a BBC Good Food link…" aria-describedby="importStatus">
+        <button type="submit" class="btn-primary import-btn" id="importBtn">Import</button>
+      </div>
+      <p class="import-status" id="importStatus" aria-live="polite"></p>
+    </form>
+    <img class="meal-photo-preview" id="mealPhotoPreview" alt="" hidden>
     <label class="field-label">Meal name</label>
     <input class="field-input" id="mealNameInput" placeholder="e.g. Fish pie">
     <label class="field-label">Ingredients (one per line)</label>
