@@ -1188,9 +1188,46 @@ function buildShoppingList(view = shopView()) {
     if (seen.has(x.key)) seen.get(x.key).extra = true;
     else seen.set(x.key, { key: x.key, text: x.text, count: 1, aisle: aisleFor(x.text), extra: true });
   });
-  const order = AISLES.map(a => a.id);
+  const order = orderedAisles().map(a => a.id);
   return [...seen.values()].sort((a, b) => order.indexOf(a.aisle) - order.indexOf(b.aisle));
 }
+
+// ---- Your shop's layout: aisle order (shared, so you both walk the same route) ----
+function orderedAisles() {
+  const saved = Array.isArray(settings.aisleOrder) ? settings.aisleOrder : [];
+  const known = saved.map(id => AISLES.find(a => a.id === id)).filter(Boolean);
+  return [...known, ...AISLES.filter(a => !saved.includes(a.id))];
+}
+function renderAisleOrder() {
+  const list = orderedAisles();
+  document.getElementById("aisleOrder").innerHTML = list.map((a, i) => `
+    <li class="aisle-row">
+      <span class="aisle-name"><span aria-hidden="true">${a.emoji}</span> ${escapeHtml(a.label)}</span>
+      <span class="aisle-moves">
+        <button type="button" class="icon-btn" data-aisle-move="${a.id}" data-dir="-1" aria-label="Move ${escapeHtml(a.label)} earlier" ${i === 0 ? "disabled" : ""}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
+        </button>
+        <button type="button" class="icon-btn" data-aisle-move="${a.id}" data-dir="1" aria-label="Move ${escapeHtml(a.label)} later" ${i === list.length - 1 ? "disabled" : ""}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      </span>
+    </li>`).join("");
+}
+document.getElementById("aisleOrder").addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-aisle-move]");
+  if (!btn || btn.disabled) return;
+  const ids = orderedAisles().map(a => a.id);
+  const i = ids.indexOf(btn.dataset.aisleMove);
+  const j = i + parseInt(btn.dataset.dir);
+  if (j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  settings.aisleOrder = ids;
+  saveSettings(settings);
+  renderAisleOrder();
+  renderShoppingList();
+  const moved = document.querySelector(`[data-aisle-move="${btn.dataset.aisleMove}"][data-dir="${btn.dataset.dir}"]`);
+  if (moved && !moved.disabled) moved.focus();
+});
 
 function formatShoppingItem(item) {
   return item.text + (item.count > 1 ? ` ×${item.count}` : "");
@@ -1220,7 +1257,7 @@ function renderShoppingList() {
   }
   const tickSet = new Set(view.ticks);
   const done = items.filter(i => tickSet.has(i.key)).length;
-  const html = AISLES.map(a => {
+  const html = orderedAisles().map(a => {
     const group = items.filter(i => i.aisle === a.id);
     if (!group.length) return "";
     return `<li class="shop-aisle" role="presentation"><span class="shop-aisle-emoji" aria-hidden="true">${a.emoji}</span>${escapeHtml(a.label)}</li>` +
@@ -1238,6 +1275,7 @@ function renderShoppingList() {
     : done === items.length ? "All done — everything's in the trolley! 🎉"
     : `${done} of ${items.length} in the trolley`) + syncNote;
   finishBtn.hidden = done === 0;
+  renderActivity();
 }
 
 // ---- Shopping: ticks + your own items, shared between phones and safe with no signal ----
@@ -1308,6 +1346,7 @@ async function flushShopQueue() {
     shopQueue = shopQueue.slice(batch.length);
     persistShopQueue();
     shopOffline = false;
+    recordActivity(batch);
   } catch (e) {
     shopOffline = true;
   } finally {
@@ -1320,7 +1359,8 @@ async function refreshShop() {
   if (document.hidden) return;
   if (shopQueue.length) { flushShopQueue(); return; }
   try {
-    const [t, x] = await Promise.all([stateGet("ticks", []), stateGet("extras", null)]);
+    const [t, x, a] = await Promise.all([stateGet("ticks", []), stateGet("extras", null), stateGet("activity", []).catch(() => null)]);
+    if (Array.isArray(a)) activity = a;
     if (shopQueue.length) return; // a change was made while we were fetching - the flush will catch up
     serverTicks = Array.isArray(t) ? t : [];
     serverExtras = normaliseExtras(x);
@@ -1346,9 +1386,41 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden) { if (shopPoll) refreshShop(); else flushShopQueue(); }
 });
 
+// ---- Activity line: "Sarah ticked Mince beef · 2 min ago" ----
+let activity = []; // newest first: [{ who, action, text, at }]
+function recordActivity(batch) {
+  const entries = batch
+    .filter(op => op.who && op.text && ((op.type === "tick" && op.on) || op.type === "addExtra"))
+    .map(op => ({ who: op.who, action: op.type === "tick" ? "ticked" : "added", text: op.text, at: op.at || Date.now() }))
+    .reverse();
+  if (!entries.length) return;
+  activity = [...entries, ...activity].slice(0, 30);
+  (async () => {
+    try {
+      const latest = await stateGet("activity", []);
+      await stateSet("activity", [...entries, ...(Array.isArray(latest) ? latest : [])].slice(0, 30));
+    } catch (e) { /* nice-to-have - never block the shop */ }
+  })();
+}
+function timeAgo(ms) {
+  const mins = Math.round((Date.now() - ms) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  return `${hrs} hr${hrs === 1 ? "" : "s"} ago`;
+}
+function renderActivity() {
+  const el = document.getElementById("shopActivity");
+  const me = getMe();
+  const latest = activity.find(a => a && a.who && a.who !== me && Date.now() - a.at < 3 * 3600e3);
+  el.hidden = !latest;
+  if (latest) el.textContent = `${currentLook().noEmoji ? "" : "🛒 "}${latest.who} ${latest.action} ${latest.text} · ${timeAgo(latest.at)}`;
+}
+
 function toggleTick(key) {
   const on = !shopView().ticks.includes(key);
-  queueShopOp({ type: "tick", key, on });
+  const item = buildShoppingList().find(i => i.key === key);
+  queueShopOp({ type: "tick", key, on, who: getMe() || undefined, text: item ? item.text : undefined, at: Date.now() });
 }
 function clearShopTicks() {
   if (shopView().ticks.length) queueShopOp({ type: "setTicks", keys: [] });
@@ -1393,7 +1465,7 @@ document.getElementById("shopAddForm").addEventListener("submit", (e) => {
     if (shopView().ticks.includes(key)) queueShopOp({ type: "tick", key, on: false });
     showToast(`${existing.text} is already on the list`);
   } else {
-    queueShopOp({ type: "addExtra", key, text });
+    queueShopOp({ type: "addExtra", key, text, who: getMe() || undefined, at: Date.now() });
   }
   input.value = "";
   input.focus();
@@ -1994,6 +2066,73 @@ function renderLookOptions() {
   });
 }
 
+// ---- Year in tea: stats from the dated plan (builds up as you use the app) ----
+function teaStats() {
+  const now = new Date();
+  const todayIso = isoDate(now);
+  const year = now.getFullYear();
+  const entries = [];
+  for (const [k, days] of Object.entries(plan.weeks)) {
+    days.forEach((d, i) => {
+      if (!d || !d.text) return;
+      const dt = new Date(k + "T12:00:00");
+      dt.setDate(dt.getDate() + i);
+      const iso = isoDate(dt);
+      if (iso > todayIso || dt.getFullYear() !== year) return;
+      entries.push({ iso, dow: dt.getDay(), ...d });
+    });
+  }
+  entries.sort((a, b) => a.iso.localeCompare(b.iso));
+  const home = entries.filter(e => !e.eatingOut);
+  const counts = {};
+  home.forEach(e => { counts[e.text] = (counts[e.text] || 0) + 1; });
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const takeaways = entries.filter(e => e.eatingOut);
+  const byDow = Array(7).fill(0);
+  takeaways.forEach(e => byDow[e.dow]++);
+  const takeawayDay = takeaways.length ? byDow.indexOf(Math.max(...byDow)) : -1;
+  // Longest run of days without pizza
+  const pizzaDates = home.filter(e => /pizza/i.test(e.text)).map(e => new Date(e.iso + "T12:00:00"));
+  const first = entries.length ? new Date(entries[0].iso + "T12:00:00") : null;
+  let pizzaGap = 0;
+  if (first) {
+    const marks = [first, ...pizzaDates, now];
+    for (let i = 1; i < marks.length; i++) pizzaGap = Math.max(pizzaGap, Math.round((marks[i] - marks[i - 1]) / 864e5));
+  }
+  const loved = Object.entries(ratings.byMeal).filter(([, r]) => r.up).sort((a, b) => b[1].up - a[1].up).slice(0, 3);
+  const vetoes = {};
+  entries.forEach(e => { if (e.vetoedBy) vetoes[e.vetoedBy] = (vetoes[e.vetoedBy] || 0) + 1; });
+  return { entries, home, top, takeaways, takeawayDay, pizzaGap, pizzaCount: pizzaDates.length, loved, vetoes, first, year };
+}
+function openStats() {
+  const s = teaStats();
+  const body = document.getElementById("statsBody");
+  document.getElementById("statsTitle").textContent = `Your ${s.year} in tea`;
+  if (!s.entries.length) {
+    body.innerHTML = `<p class="confirm-message">Nothing to show yet — your stats build up as the weeks go by. Check back in a few weeks!</p>`;
+  } else {
+    const stat = (big, label) => `<div class="stat"><span class="stat-big">${big}</span><span class="stat-label">${label}</span></div>`;
+    body.innerHTML = `
+      <p class="stats-since">Since ${s.first.getDate()} ${SHORT_MONTHS[s.first.getMonth()]}</p>
+      <div class="stats-grid">
+        ${stat(s.home.length, "teas at home")}
+        ${stat(s.takeaways.length, "nights off")}
+        ${stat(Object.keys(Object.fromEntries(s.home.map(e => [e.text, 1]))).length, "different meals")}
+        ${stat(s.pizzaGap, `days — longest run without pizza`)}
+      </div>
+      ${s.top.length ? `<h3 class="stats-h">Most eaten</h3><ol class="stats-top">${s.top.map(([n, c], i) =>
+        `<li><span class="stats-rank">${["🥇", "🥈", "🥉", "4", "5"][i]}</span><span class="stats-name">${escapeHtml(n)}</span><span class="stats-count">×${c}</span></li>`).join("")}</ol>` : ""}
+      ${s.takeawayDay >= 0 ? `<p class="stats-line">🥡 Favourite night off: <strong>${FULL_DAYS[s.takeawayDay]}</strong></p>` : ""}
+      ${s.loved.length ? `<p class="stats-line">😋 Most loved: <strong>${s.loved.map(([n, r]) => `${escapeHtml(n)} (👍${r.up})`).join(", ")}</strong></p>` : ""}
+      ${Object.keys(s.vetoes).length ? `<p class="stats-line">🙅 Vetoes used: <strong>${Object.entries(s.vetoes).map(([p, c]) => `${escapeHtml(p)} ${c}`).join(" · ")}</strong></p>` : ""}
+    `;
+  }
+  document.getElementById("statsOverlay").classList.add("active");
+}
+document.getElementById("statsOpenBtn").addEventListener("click", openStats);
+document.getElementById("statsCloseBtn").addEventListener("click", () => document.getElementById("statsOverlay").classList.remove("active"));
+document.getElementById("statsOverlay").addEventListener("click", (e) => { if (e.target.id === "statsOverlay") e.target.classList.remove("active"); });
+
 // ---- Calendar feed settings ----
 function renderCalendarSettings() {
   document.getElementById("calAppleLink").href = "webcal://" + CALENDAR_FEED;
@@ -2013,6 +2152,7 @@ for (const [id, key, parse] of [["teaTimeInput", "teaTime", v => v], ["remindSel
 function renderSettingsView() {
   renderWho();
   renderCalendarSettings();
+  renderAisleOrder();
   renderLookOptions();
   document.getElementById("muteToggle").checked = !!settings.muted;
   document.getElementById("confettiToggle").checked = settings.confetti !== false;

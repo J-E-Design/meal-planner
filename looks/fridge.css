@@ -355,3 +355,11 @@
 [data-look="fridge"] .swipe-top h2 { font-family: var(--round); font-weight: 700; }
 [data-look="fridge"] .swipe-btn { background: var(--paper); }
 [data-look="fridge"] .modal-overlay.swipe-overlay { background-color: var(--bg); }
+
+/* ---- Activity, aisle order, year in tea ---- */
+[data-look="fridge"] .shop-activity { font-family: var(--hand); font-size: 18px; color: var(--accent); }
+[data-look="fridge"] .aisle-row, [data-look="fridge"] .stat { background: var(--paper); border-color: transparent; box-shadow: var(--shadow); }
+[data-look="fridge"] .aisle-name { font-family: var(--round); font-weight: 500; }
+[data-look="fridge"] .stat-big { font-family: var(--round); font-weight: 700; color: var(--accent); }
+[data-look="fridge"] .stats-since { font-family: var(--hand); font-size: 19px; }
+[data-look="fridge"] .stats-h { font-family: var(--round); font-weight: 600; }

@@ -379,3 +379,13 @@
 [data-look="chalk"] .swipe-btn { background: transparent; border: 2px solid currentColor; box-shadow: none; }
 [data-look="chalk"] .swipe-close { border-radius: 2px; background: transparent; border: 1.5px solid var(--rule-strong); }
 [data-look="chalk"] .swipe-matches { color: var(--accent); }
+
+/* ---- Activity, aisle order, year in tea ---- */
+[data-look="chalk"] .shop-activity { font-family: var(--hand); font-weight: 400; font-size: 14px; color: var(--accent2); text-align: center; }
+[data-look="chalk"] .aisle-row { background: transparent; border-color: var(--border2); border-radius: 2px; }
+[data-look="chalk"] .aisle-name { font-family: var(--label); font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; }
+[data-look="chalk"] .stat { background: transparent; border-color: var(--rule-strong); border-radius: 2px; text-align: center; }
+[data-look="chalk"] .stat-big { font-family: var(--display); font-weight: 600; color: var(--accent); }
+[data-look="chalk"] .stat-label { font-family: var(--label); font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; }
+[data-look="chalk"] .stats-top li { font-family: var(--dish); font-weight: var(--dish-weight); border-color: var(--rule); }
+[data-look="chalk"] .stats-since { font-family: var(--hand); font-weight: 400; }

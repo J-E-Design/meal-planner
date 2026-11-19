@@ -351,3 +351,14 @@
 [data-look="calm"] .swipe-top h2 { font-family: var(--display); font-weight: 800; letter-spacing: -0.5px; }
 [data-look="calm"] .swipe-btn.yes { color: var(--accent); }
 [data-look="calm"] .swipe-matches { color: var(--accent); }
+
+/* ---- Activity, aisle order, year in tea ---- */
+[data-look="calm"] .shop-activity { font-family: var(--ui); font-weight: 600; color: #2F7FD1; }
+[data-look="calm"] .aisle-order { background: var(--card-bg); border-radius: 18px; overflow: hidden; }
+[data-look="calm"] .aisle-row { border: none; border-radius: 0; margin: 0; border-bottom: 1px solid var(--hairline); padding: 10px 12px 10px 16px; }
+[data-look="calm"] .aisle-row:last-child { border-bottom: none; }
+[data-look="calm"] .aisle-name { font-weight: 500; font-size: 16px; }
+[data-look="calm"] .stat { border: none; background: var(--input-bg); border-radius: 18px; }
+[data-look="calm"] .stat-big { font-family: var(--display); color: var(--accent); letter-spacing: -1px; }
+[data-look="calm"] .stat-label { font-weight: 500; }
+[data-look="calm"] .stats-top li { font-weight: 500; border-color: var(--hairline); }

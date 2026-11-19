@@ -98,6 +98,7 @@
         <datalist id="shopPastItems"></datalist>
       </form>
       <p class="shop-progress" id="shopProgress" aria-live="polite"></p>
+      <p class="shop-activity" id="shopActivity" hidden></p>
       <ul class="shop-list" id="shopList"></ul>
       <div class="shop-actions">
         <button class="btn-secondary" id="clearTicksBtn" hidden>✓ Finish shop</button>
@@ -181,6 +182,15 @@
       </div>
     </div>
 
+    <div class="settings-section">
+      <h2 class="settings-heading">📊 Your year in tea</h2>
+      <button type="button" class="btn-secondary stats-open" id="statsOpenBtn">See your stats — most eaten, takeaways, vetoes…</button>
+    </div>
+    <div class="settings-section">
+      <h2 class="settings-heading">🛒 Your shop's layout</h2>
+      <p class="hint">Put the aisles in the order you walk round, and the shopping list follows it. Shared between you both.</p>
+      <ol class="aisle-order" id="aisleOrder"></ol>
+    </div>
     <div class="settings-section">
       <h2 class="settings-heading">📅 Calendar &amp; reminders</h2>
       <p class="hint">Put your teas in your phone's calendar — with a reminder before tea, and a 🧊 defrost reminder the night before for meals that need it. Updates itself as you plan.</p>
@@ -334,6 +344,17 @@
       </button>
     </div>
     <p class="swipe-hint" id="swipeHint">Swipe right for <strong>yes please</strong>, left for <strong>not this week</strong></p>
+  </div>
+</div>
+
+<!-- Year in tea -->
+<div class="modal-overlay" id="statsOverlay">
+  <div class="modal stats-modal">
+    <h2 id="statsTitle">Your year in tea</h2>
+    <div id="statsBody"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="statsCloseBtn">Lovely</button>
+    </div>
   </div>
 </div>
 
