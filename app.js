@@ -167,6 +167,7 @@ function previewSound(src) {
 }
 
 function spawnConfetti(originEl) {
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const rect = originEl.getBoundingClientRect();
   const originX = rect.left + rect.width / 2;
   const originY = rect.top + rect.height / 2;
@@ -479,20 +480,26 @@ function showConfirm(message, opts = {}) {
     cancelBtn.textContent = cancelLabel;
     cancelBtn.style.display = cancelLabel ? "" : "none";
     overlay.classList.add("active");
+    const returnFocus = document.activeElement;
+    setTimeout(() => (cancelLabel ? cancelBtn : okBtn).focus(), 30);
 
     function cleanup(result) {
       overlay.classList.remove("active");
       okBtn.removeEventListener("click", onOk);
       cancelBtn.removeEventListener("click", onCancel);
       overlay.removeEventListener("click", onOverlay);
+      document.removeEventListener("keydown", onKey);
+      if (returnFocus && returnFocus.focus) returnFocus.focus();
       resolve(result);
     }
     function onOk() { cleanup(true); }
     function onCancel() { cleanup(false); }
     function onOverlay(e) { if (e.target === overlay) cleanup(false); }
+    function onKey(e) { if (e.key === "Escape") cleanup(false); }
     okBtn.addEventListener("click", onOk);
     cancelBtn.addEventListener("click", onCancel);
     overlay.addEventListener("click", onOverlay);
+    document.addEventListener("keydown", onKey);
   });
 }
 function showAlert(message, title = "Heads up") {
@@ -2550,8 +2557,9 @@ document.getElementById("resetDataBtn").addEventListener("click", async () => {
 // ---- Nav ----
 document.querySelectorAll(".nav-btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".nav-btn").forEach(b => { b.classList.remove("active"); b.removeAttribute("aria-current"); });
     btn.classList.add("active");
+    btn.setAttribute("aria-current", "page");
     const target = btn.dataset.view;
     document.getElementById("planView").classList.toggle("active", target === "plan");
     document.getElementById("shopView").classList.toggle("active", target === "shop");
@@ -2569,6 +2577,32 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
     document.getElementById("pageSubtitle").textContent = subtitles[target];
   });
 });
+
+// ---- Accessibility: dialogs announce themselves, Escape closes the top one ----
+document.querySelectorAll(".modal-overlay").forEach((overlay, n) => {
+  const box = overlay.querySelector(".modal, .swipe-sheet");
+  if (!box) return;
+  box.setAttribute("role", "dialog");
+  box.setAttribute("aria-modal", "true");
+  const heading = box.querySelector("h2");
+  if (heading) {
+    if (!heading.id) heading.id = "dialogTitle" + n;
+    box.setAttribute("aria-labelledby", heading.id);
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const open = [...document.querySelectorAll(".modal-overlay.active")].pop();
+  if (!open) return;
+  // "Who's this phone?" can't be dismissed until a name is set; swipe & confirm have their own handling
+  if (open.id === "whoModalOverlay" && !getMe()) return;
+  if (open.id === "swipeOverlay" || open.id === "confirmModalOverlay") return;
+  open.classList.remove("active");
+  if (open.id === "dayModalOverlay") editingDayIndex = null;
+});
+document.querySelector(".nav-btn.active")?.setAttribute("aria-current", "page");
+document.querySelector(".bottom-nav")?.setAttribute("aria-label", "Main");
+document.querySelector(".bottom-nav")?.setAttribute("role", "navigation");
 
 // ---- Service worker ----
 if ("serviceWorker" in navigator) {

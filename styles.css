@@ -4,8 +4,8 @@
   :root {
     --bg: #FFF6EA;
     --text: #3A2318;
-    --muted: #8A7768;
-    --muted2: #B3A594;
+    --muted: #7F6E60;
+    --muted2: #988C7E;
     --card-bg: #fff;
     --border: #F0E6D6;
     --border2: #E8DFCE;
@@ -593,3 +593,17 @@
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .meal-tag.ages-tag { color: #8A6A1F; }
   .aisle-pick { font-family: 'Nunito', system-ui, sans-serif; line-height: 1.2; }
+
+  /* ---- Accessibility ---- */
+  /* Clear focus ring for keyboard users (not shown for taps) */
+  :focus-visible { outline: 3px solid #3A72B8; outline-offset: 2px; }
+  .shop-item:focus-visible, .day-meal-btn:focus-visible { outline-offset: -2px; border-radius: 8px; }
+  /* Week dots: small to look at, big enough to tap */
+  .week-dots { gap: 10px; }
+  .week-dots button { position: relative; }
+  .week-dots button::after { content: ""; position: absolute; inset: -10px -6px; }
+  /* Respect "reduce motion" */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+    body::before, body::after { animation: none !important; }
+  }
