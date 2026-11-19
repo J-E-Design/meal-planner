@@ -230,17 +230,24 @@ function renderShoppingList() {
     return;
   }
   const tickSet = new Set(view.ticks);
-  const done = items.filter(i => tickSet.has(i.key)).length;
-  const html = orderedAisles().map(a => {
-    const group = items.filter(i => i.aisle === a.id);
+  // "Always in the cupboard" items stay out of the way unless you add them back (running low)
+  const staples = new Set(Array.isArray(settings.staples) ? settings.staples : []);
+  const isStaple = i => staples.has(i.key) && !i.extra;
+  const shopping = shopMoveMode ? items : items.filter(i => !isStaple(i));
+  const cupboard = shopMoveMode ? [] : items.filter(isStaple);
+  const done = shopping.filter(i => tickSet.has(i.key)).length;
+  let html = orderedAisles().map(a => {
+    const group = shopping.filter(i => i.aisle === a.id);
     if (!group.length) return "";
     return `<li class="shop-aisle" role="presentation"><span class="shop-aisle-emoji" aria-hidden="true">${a.emoji}</span>${escapeHtml(a.label)}</li>` +
       group.map(i => {
         const on = tickSet.has(i.key);
         const removable = i.extra && !i.fromMeal;
         if (shopMoveMode) {
-          // Move items: pick an aisle per item instead of ticking
+          // Move items: pick an aisle per item, or mark it as always in the cupboard
+          const st = staples.has(i.key);
           return `<li class="shop-item moving"><span class="shop-item-text">${escapeHtml(formatShoppingItem(i))}</span>` +
+            `<button type="button" class="staple-toggle${st ? " active" : ""}" data-staple="${escapeHtml(i.key)}" aria-pressed="${st}" aria-label="${escapeHtml(i.text)} is always in the cupboard" title="Always in the cupboard">🧂</button>` +
             `<select class="aisle-pick" data-aisle-key="${escapeHtml(i.key)}" aria-label="Aisle for ${escapeHtml(i.text)}">` +
             AISLES.map(x => `<option value="${x.id}"${x.id === i.aisle ? " selected" : ""}>${escapeHtml(x.label)}</option>`).join("") +
             `</select></li>`;
@@ -251,10 +258,15 @@ function renderShoppingList() {
           `</li>`;
       }).join("");
   }).join("");
+  if (cupboard.length) {
+    html += `<li class="shop-aisle cupboard-aisle" role="presentation"><span class="shop-aisle-emoji" aria-hidden="true">🧂</span>Already in the cupboard</li>` +
+      `<li class="cupboard-hint" role="presentation">Tap anything you're running low on to add it to the list.</li>` +
+      cupboard.map(i => `<li class="shop-item cupboard-item"><button type="button" class="cupboard-btn" data-running-low="${escapeHtml(i.key)}">${escapeHtml(i.name.replace(/^./, c => c.toUpperCase()))}<span class="cupboard-add" aria-hidden="true">＋</span></button></li>`).join("");
+  }
   if (html !== lastShopHtml) { ul.innerHTML = html; lastShopHtml = html; } // avoid flicker on background refreshes
-  progress.textContent = shopMoveMode ? "Pick the right aisle for any item — the app will remember it for both of you." : (done === 0 ? "Tap an item to tick it off — you'll both see it."
-    : done === items.length ? "All done — everything's in the trolley! 🎉"
-    : `${done} of ${items.length} in the trolley`) + syncNote;
+  progress.textContent = shopMoveMode ? "Pick the right aisle for any item, or tap 🧂 for things that are always in the cupboard. Remembered for both of you." : (done === 0 ? "Tap an item to tick it off — you'll both see it."
+    : done === shopping.length ? "All done — everything's in the trolley! 🎉"
+    : `${done} of ${shopping.length} in the trolley`) + syncNote;
   finishBtn.hidden = done === 0;
   renderActivity();
 }
@@ -417,6 +429,30 @@ function finishShop() {
     },
   });
 }
+// ---- Always in the cupboard (staples) ----
+document.getElementById("shopList").addEventListener("click", (e) => {
+  const toggle = e.target.closest("[data-staple]");
+  if (toggle) {
+    const key = toggle.dataset.staple;
+    const set = new Set(Array.isArray(settings.staples) ? settings.staples : []);
+    const nowStaple = !set.has(key);
+    if (nowStaple) set.add(key); else set.delete(key);
+    settings.staples = [...set];
+    saveSettings(settings);
+    lastShopHtml = "";
+    renderShoppingList();
+    return;
+  }
+  const low = e.target.closest("[data-running-low]");
+  if (low) {
+    const item = buildShoppingList().find(i => i.key === low.dataset.runningLow);
+    if (!item) return;
+    const text = item.name.replace(/^./, c => c.toUpperCase());
+    queueShopOp({ type: "addExtra", key: item.key, text, who: getMe() || undefined, at: Date.now() });
+    showToast(`${text} added — running low`);
+  }
+});
+
 // ---- Move items: choose an item's aisle yourself (remembered for both of you) ----
 let shopMoveMode = false;
 document.getElementById("moveItemsBtn").addEventListener("click", () => {

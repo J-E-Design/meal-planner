@@ -384,3 +384,14 @@
 [data-look="chalk"] .stat-label { font-family: var(--label); font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; }
 [data-look="chalk"] .stats-top li { font-family: var(--dish); font-weight: var(--dish-weight); border-color: var(--rule); }
 [data-look="chalk"] .stats-since { font-family: var(--hand); font-weight: 400; }
+
+/* ---- Tags, rules, occasions, tonight actions ---- */
+[data-look="chalk"] .chip.tag-chip.active { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+[data-look="chalk"] .meal-tag-chip { border-radius: 2px; background: transparent; border: 1px solid var(--border2); font-family: var(--label); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+[data-look="chalk"] .day-tag { order: 3; flex-basis: 100%; text-align: right; font-family: var(--label); font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; }
+[data-look="chalk"] .day-tag.occasion-tag { color: var(--accent2); }
+[data-look="chalk"] .occasion-row { background: transparent; border-color: var(--border2); border-radius: 2px; }
+[data-look="chalk"] .tonight-action { border-radius: 2px; background: transparent; border-color: var(--rule-strong); font-family: var(--label); font-size: 11.5px; letter-spacing: 1.2px; text-transform: uppercase; }
+[data-look="chalk"] .shop-list .cupboard-hint { display: block; margin: 6px 0 2px; border: none; font-family: var(--hand); font-weight: 400; font-size: 13px; }
+[data-look="chalk"] .shop-list .shop-item.cupboard-item { margin: 0; }
+[data-look="chalk"] .cupboard-btn { font-family: var(--item); font-style: italic; }

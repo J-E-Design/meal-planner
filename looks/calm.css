@@ -358,3 +358,14 @@
 [data-look="calm"] .stat-big { font-family: var(--display); color: var(--accent); letter-spacing: -1px; }
 [data-look="calm"] .stat-label { font-weight: 500; }
 [data-look="calm"] .stats-top li { font-weight: 500; border-color: var(--hairline); }
+
+/* ---- Tags, rules, occasions, tonight actions ---- */
+[data-look="calm"] .chip.tag-chip.active { background: var(--ink); color: var(--on-ink); }
+[data-look="calm"] .meal-tag-chip { font-family: var(--ui); font-weight: 500; }
+[data-look="calm"] .day-tag { font-family: var(--ui); font-weight: 600; font-size: 12px; }
+[data-look="calm"] .occasion-row { border: none; border-radius: 16px; }
+[data-look="calm"] .tonight-actions { justify-content: flex-start; margin-top: 12px; }
+[data-look="calm"] .tonight-action { border: none; background: var(--card-bg); box-shadow: var(--shadow); font-family: var(--ui); font-weight: 600; font-size: 14px; padding: 9px 16px; }
+[data-look="calm"] .shop-list .cupboard-hint { display: block; margin: 0 0 4px; border: none; }
+[data-look="calm"] .shop-list .shop-item.cupboard-item { margin: 0; }
+[data-look="calm"] .cupboard-btn { font-family: var(--ui); font-weight: 500; }

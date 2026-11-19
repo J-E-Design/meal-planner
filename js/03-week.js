@@ -31,37 +31,111 @@ function weightedDeck(excludeNames) {
   return usePool.flatMap(m => Array(deckCopies(mealWeight(m.name)) || 1).fill(m.name));
 }
 
+// ---- Meal tags (also used by day rules and filters) ----
+const MEAL_TAGS = [
+  { id: "quick", label: "Quick", emoji: "⚡" },
+  { id: "slow", label: "Slow cooker", emoji: "🐢" },
+  { id: "weekend", label: "Weekend treat", emoji: "🍖" },
+  { id: "veggie", label: "Veggie", emoji: "🥦" },
+  { id: "fish", label: "Fish", emoji: "🐟" },
+  { id: "fakeaway", label: "Fakeaway", emoji: "🥡" },
+  { id: "comfort", label: "Comfort food", emoji: "🧸" },
+  { id: "new", label: "New to try", emoji: "✨" },
+];
+function tagInfo(id) { return MEAL_TAGS.find(t => t.id === id); }
+function tagLabel(id) {
+  const t = tagInfo(id);
+  return t ? (currentLook().noEmoji ? t.label : `${t.emoji} ${t.label}`) : "";
+}
+function mealTags(name) {
+  const m = mealByName(name);
+  return m && Array.isArray(m.tags) ? m.tags.filter(t => tagInfo(t)) : [];
+}
+// Day rules: settings.dayRules = { "3": "quick", "5": "fish" } (0 = Sunday)
+function dayRule(i) {
+  const r = settings.dayRules && settings.dayRules[i];
+  return tagInfo(r) ? r : "";
+}
+// Special occasions: settings.occasions = [{ id, md: "03-14", label, emoji, meal }]
+function occasionOn(iso) {
+  const md = iso.slice(5);
+  return (Array.isArray(settings.occasions) ? settings.occasions : []).find(o => o && o.md === md) || null;
+}
+
 function pickWeek() {
   const result = week.map(d => d && (d.locked || d.eatingOut) ? d : null);
-  const slotsToFill = [];
-  result.forEach((d, i) => { if (!d) slotsToFill.push(i); });
 
   // avoid repeating meals from the two weeks before this one (and anything planned the week after)
-  const recentNames = new Set([
+  const recent = new Set([
     ...[-2, -1, 1].flatMap(o => weekDays(viewOffset + o)).filter(d => d && !d.eatingOut).map(d => d.text),
     ...(viewOffset === 0 ? history.flat() : []),
   ]);
-
-  // Favourites sit in the deck several times (more likely to come up), but a meal should
-  // only land once per week unless there genuinely aren't enough different meals.
   const used = new Set(result.filter(Boolean).map(d => d.text));
-  let deck = [];
-  slotsToFill.forEach((i) => {
-    if (deck.length === 0) deck = weightedDeck(recentNames).sort(() => Math.random() - 0.5);
-    let idx = -1;
-    for (let j = deck.length - 1; j >= 0; j--) if (!used.has(deck[j])) { idx = j; break; }
-    if (idx === -1) {
-      // everything left in the deck is already this week - try the full meal list before repeating
-      const fresh = meals.map(m => m.name).filter(n => !used.has(n));
-      const pick = fresh.length ? fresh[Math.floor(Math.random() * fresh.length)] : deck.pop();
-      used.add(pick);
-      result[i] = { text: pick, locked: false };
-      return;
-    }
-    const pick = deck.splice(idx, 1)[0];
-    used.add(pick);
-    result[i] = { text: pick, locked: false };
+  const generic = new Set(); // days filled by the plain shuffle (free for "new to try" / leftovers)
+
+  // Weighted pick (favourites, swipes) among meals passing `fits`, never one already this week;
+  // prefers meals that weren't in the last couple of weeks.
+  const choose = (fits) => {
+    const ok = m => !used.has(m.name) && mealWeight(m.name) > 0 && fits(m);
+    let pool = meals.filter(m => ok(m) && !recent.has(m.name));
+    if (!pool.length) pool = meals.filter(ok);
+    if (!pool.length) return null;
+    const deck = pool.flatMap(m => Array(deckCopies(mealWeight(m.name)) || 1).fill(m.name));
+    return deck[Math.floor(Math.random() * deck.length)];
+  };
+  const place = (i, name, extra = {}) => { result[i] = { text: name, locked: false, ...extra }; used.add(name); };
+  const free = () => result.map((d, i) => d ? -1 : i).filter(i => i >= 0);
+
+  // 1. Special occasions that have a chosen meal
+  free().forEach(i => {
+    const occ = occasionOn(dateKey(viewOffset, i));
+    if (occ && occ.meal && mealByName(occ.meal) && !used.has(occ.meal)) place(i, occ.meal);
   });
+  // 2. Day rules ("Wednesdays are quick") - the rule with the fewest matching meals goes first,
+  //    so e.g. "Fish Friday" isn't starved because "Quick Wednesday" took the only fish meal.
+  const matching = tag => meals.filter(m => Array.isArray(m.tags) && m.tags.includes(tag)).length;
+  free().filter(i => dayRule(i)).sort((a, b) => matching(dayRule(a)) - matching(dayRule(b))).forEach(i => {
+    const tag = dayRule(i);
+    const pick = choose(m => Array.isArray(m.tags) && m.tags.includes(tag));
+    if (pick) place(i, pick);
+  });
+  // 3. Everything else
+  free().forEach(i => {
+    let pick = choose(() => true);
+    if (!pick) {
+      // genuinely not enough different meals - allow a repeat rather than leave a gap
+      const any = meals.filter(m => mealWeight(m.name) > 0);
+      const list = any.length ? any : meals;
+      pick = list.length ? list[Math.floor(Math.random() * list.length)].name : null;
+    }
+    if (pick) { place(i, pick); generic.add(i); }
+  });
+  // 4. Leftovers: a meal that makes leftovers fills the next day, if that day was a plain shuffle pick
+  for (let i = 0; i < 6; i++) {
+    const d = result[i];
+    const m = d && !d.eatingOut ? mealByName(d.text) : null;
+    if (!m || !m.leftover || !generic.has(i + 1) || dayRule(i + 1)) continue;
+    if (!mealByName(m.leftover)) continue;
+    if (used.has(m.leftover)) {
+      // Already elsewhere this week: swap it next door if it was a plain pick, otherwise leave it
+      const j = result.findIndex(x => x && x.text === m.leftover);
+      if (!generic.has(j)) continue;
+      result[j] = result[i + 1];
+    } else {
+      used.delete(result[i + 1].text);
+    }
+    result[i + 1] = { text: m.leftover, locked: false, leftover: true };
+    used.add(m.leftover);
+    generic.delete(i + 1);
+  }
+  // 5. One "new to try" meal a week (if switched on) - after leftovers so nothing overwrites it
+  if (settings.weeklyNew && !result.some(d => d && !d.eatingOut && mealTags(d.text).includes("new")) && generic.size) {
+    const slots = [...generic];
+    const i = slots[Math.floor(Math.random() * slots.length)];
+    used.delete(result[i].text);
+    const pick = choose(m => Array.isArray(m.tags) && m.tags.includes("new"));
+    if (pick) { place(i, pick); generic.delete(i); } else used.add(result[i].text);
+  }
   return result;
 }
 
@@ -92,6 +166,9 @@ function renderWeek() {
         <div class="day-meal ${d ? "" : "empty"}">${d ? mealLabel(d.text) : (currentLook().noEmoji ? "To be decided" : "🎲 Not decided yet")}</div>
         ${d && d.eatingOut ? `<div class="lock-tag eating-out-tag">🥡 Eating out</div>` : (d && d.locked ? `<div class="lock-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a5 5 0 00-5 5v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1V7a5 5 0 00-5-5zm-3 8V7a3 3 0 016 0v3z"/></svg>Locked</div>` : "")}
         ${d && d.vetoedBy ? `<div class="veto-tag">${currentLook().noEmoji ? "" : "🙅 "}${escapeHtml(d.vetoedBy)} vetoed ${escapeHtml(d.vetoed || "it")}</div>` : ""}
+        ${d && d.leftover ? `<div class="day-tag leftover-tag">${currentLook().noEmoji ? "" : "♻️ "}Leftovers</div>` : ""}
+        ${occasionOn(isoDate(date)) ? `<div class="day-tag occasion-tag">${currentLook().noEmoji ? "" : escapeHtml(occasionOn(isoDate(date)).emoji || "🎉") + " "}${escapeHtml(occasionOn(isoDate(date)).label)}</div>` : ""}
+        ${!d && dayRule(i) ? `<div class="day-tag rule-tag">${escapeHtml(tagLabel(dayRule(i)))} night</div>` : ""}
         ${note ? `<div class="day-note">${currentLook().noEmoji ? "" : "📝 "}${escapeHtml(note)}</div>` : ""}
       </button>
       <div class="day-actions">
@@ -257,15 +334,61 @@ function renderTonight() {
     sub = ingCount ? `${ingCount} ingredient${ingCount === 1 ? "" : "s"}` : "";
   }
   if (note) sub = (sub ? sub + " · " : "") + escapeHtml(note);
+  const occ = occasionOn(dateKey(0, i));
   card.innerHTML = `
     <span class="tonight-magnet" aria-hidden="true"></span>
-    <span class="tonight-label">Tonight · ${FULL_DAYS[i]}</span>
+    <span class="tonight-label">Tonight · ${FULL_DAYS[i]}${occ ? ` · ${escapeHtml(occ.emoji || "🎉")} ${escapeHtml(occ.label)}` : ""}</span>
     <span class="tonight-main">${main}</span>
     ${sub ? `<span class="tonight-sub">${sub}</span>` : ""}
     <span class="tonight-next">Tomorrow: ${next ? mealLabel(next.text) : "not decided yet"}${nextMeal && nextMeal.defrost && !next.eatingOut ? ` <span class="tonight-defrost">🧊 defrost tonight</span>` : ""}</span>
   `;
   card.setAttribute("aria-label", `Tonight: ${d ? d.text : "nothing planned"}. Tap to edit.`);
+  // Recipe link (for meals imported from a recipe page) and Spin
+  const link = document.getElementById("tonightRecipeLink");
+  const url = meal && meal.sourceUrl && /^https?:\/\//i.test(meal.sourceUrl) ? meal.sourceUrl : "";
+  link.hidden = !url;
+  if (url) link.href = url;
+  const spin = document.getElementById("spinTonightBtn");
+  spin.hidden = !!(d && (d.locked || d.eatingOut)) || meals.length < 2;
 }
+
+// ---- Spin for tonight: re-pick just tonight with a slot-machine spin ----
+let spinning = false;
+function spinTonight() {
+  const i = new Date().getDay();
+  const days = weekDays(0).slice();
+  const d = days[i];
+  if (spinning || meals.length < 2) return;
+  if (d && (d.locked || d.eatingOut)) { showToast("Tonight is locked — unlock it to spin"); return; }
+  spinning = true;
+  const before = weekDays(0).slice();
+  const pick = pickReplacement(i, d ? [d.text] : [], days);
+  const mealEl = document.querySelector("#tonightCard .tonight-meal");
+  const emojiEl = document.querySelector("#tonightCard .tonight-emoji");
+  playNomSound();
+  const finish = () => {
+    days[i] = { text: pick, locked: false };
+    savePlanWeek(weekKey(0), days);
+    if (viewOffset === 0) week = days;
+    spinning = false;
+    renderWeek();
+    if (settings.confetti !== false) spawnConfetti(document.getElementById("tonightCard"));
+    showToast(`Tonight: ${pick}`, { undo: () => restoreWeek(0, before) });
+  };
+  if (prefersReducedMotion() || !mealEl) { finish(); return; }
+  const names = meals.map(m => m.name);
+  const stopAt = performance.now() + 1100;
+  mealEl.classList.remove("empty");
+  const tick = () => {
+    if (performance.now() >= stopAt) { finish(); return; }
+    const n = names[Math.floor(Math.random() * names.length)];
+    mealEl.textContent = n;
+    if (emojiEl) emojiEl.textContent = getMealEmoji(n);
+    setTimeout(tick, 70);
+  };
+  tick();
+}
+document.getElementById("spinTonightBtn").addEventListener("click", spinTonight);
 document.getElementById("tonightCard").addEventListener("click", () => {
   if (viewOffset !== 0) goToWeek(0);
   openDayModal(new Date().getDay());
@@ -503,9 +626,15 @@ document.addEventListener("keydown", (e) => {
 });
 
 // Pick one meal for day i: weighted, avoiding the given names and anything else already this week.
-function pickReplacement(i, avoid = []) {
-  const taken = new Set([...avoid, ...week.filter((d, j) => d && j !== i).map(d => d.text)].filter(Boolean));
+// Follows that day's rule ("Wednesdays are quick") when a suitable meal exists.
+function pickReplacement(i, avoid = [], days = week) {
+  const taken = new Set([...avoid, ...days.filter((d, j) => d && j !== i).map(d => d.text)].filter(Boolean));
   let pool = meals.filter(m => !taken.has(m.name) && mealWeight(m.name) > 0);
+  const rule = dayRule(i);
+  if (rule) {
+    const ruled = pool.filter(m => Array.isArray(m.tags) && m.tags.includes(rule));
+    if (ruled.length) pool = ruled;
+  }
   if (!pool.length) pool = meals.filter(m => !avoid.includes(m.name));
   if (!pool.length) pool = meals;
   const deck = pool.flatMap(m => Array(deckCopies(mealWeight(m.name)) || 1).fill(m.name));

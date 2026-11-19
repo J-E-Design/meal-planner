@@ -290,7 +290,91 @@ for (const [id, key, parse] of [["teaTimeInput", "teaTime", v => v], ["remindSel
   });
 }
 
+// ---- Day rules ("Wednesdays are quick") and the weekly "new to try" ----
+function renderDayRules() {
+  const options = `<option value="">No rule</option>` + MEAL_TAGS.map(t => `<option value="${t.id}">${escapeHtml(tagLabel(t.id))}</option>`).join("");
+  document.getElementById("dayRules").innerHTML = DAYS.map((d, i) => `
+    <div class="toggle-row day-rule-row">
+      <label for="dayRule${i}">${FULL_DAYS[i]}</label>
+      <select class="time-input" id="dayRule${i}" data-day-rule="${i}">${options}</select>
+    </div>`).join("");
+  DAYS.forEach((d, i) => { document.getElementById("dayRule" + i).value = dayRule(i); });
+  document.getElementById("weeklyNewToggle").checked = !!settings.weeklyNew;
+}
+document.getElementById("dayRules").addEventListener("change", (e) => {
+  const sel = e.target.closest("[data-day-rule]");
+  if (!sel) return;
+  const rules = { ...(settings.dayRules || {}) };
+  if (sel.value) rules[sel.dataset.dayRule] = sel.value; else delete rules[sel.dataset.dayRule];
+  settings.dayRules = rules;
+  saveSettings(settings);
+  renderWeek();
+  const tagged = meals.filter(m => Array.isArray(m.tags) && m.tags.includes(sel.value)).length;
+  if (sel.value && !tagged) showToast(`No meals are tagged ${tagLabel(sel.value)} yet — tag some in My meals`);
+});
+document.getElementById("weeklyNewToggle").addEventListener("change", (e) => {
+  settings.weeklyNew = e.target.checked;
+  saveSettings(settings);
+  if (e.target.checked && !meals.some(m => Array.isArray(m.tags) && m.tags.includes("new"))) {
+    showToast("Tag a few meals ✨ New to try in My meals and the shuffle will add one a week");
+  }
+});
+
+// ---- Special occasions ----
+function occasionDateLabel(md) {
+  const [m, d] = md.split("-").map(Number);
+  return `${d} ${SHORT_MONTHS[m - 1]}`;
+}
+function renderOccasions() {
+  const list = Array.isArray(settings.occasions) ? settings.occasions : [];
+  const sorted = list.slice().sort((a, b) => a.md.localeCompare(b.md));
+  document.getElementById("occasionList").innerHTML = sorted.map(o => `
+    <li class="occasion-row">
+      <span class="occasion-what"><span aria-hidden="true">${escapeHtml(o.emoji || "🎉")}</span> <strong>${escapeHtml(o.label)}</strong> · ${occasionDateLabel(o.md)}${o.meal ? ` · ${escapeHtml(o.meal)}` : ""}</span>
+      <button type="button" class="icon-btn danger" data-del-occasion="${escapeHtml(o.id)}" aria-label="Remove ${escapeHtml(o.label)}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </li>`).join("");
+  document.getElementById("occasionMeal").innerHTML = `<option value="">No special meal</option>` +
+    meals.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join("");
+}
+function occasionEmoji(label) {
+  if (/birthday|bday/i.test(label)) return "🎂";
+  if (/anniversary|wedding|valentine/i.test(label)) return "💕";
+  if (/christmas|xmas/i.test(label)) return "🎄";
+  if (/easter/i.test(label)) return "🐣";
+  if (/new year/i.test(label)) return "🎆";
+  return "🎉";
+}
+document.getElementById("occasionForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const label = document.getElementById("occasionLabel").value.trim();
+  const date = document.getElementById("occasionDate").value; // yyyy-mm-dd
+  if (!label) { document.getElementById("occasionLabel").focus(); return; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { document.getElementById("occasionDate").focus(); return; }
+  const meal = document.getElementById("occasionMeal").value;
+  const o = { id: "o" + Date.now(), md: date.slice(5), label, emoji: occasionEmoji(label), ...(meal ? { meal } : {}) };
+  settings.occasions = [...(Array.isArray(settings.occasions) ? settings.occasions : []), o];
+  saveSettings(settings);
+  e.target.reset();
+  renderOccasions();
+  renderWeek();
+  showToast(`${o.emoji} ${label} added — every year on ${occasionDateLabel(o.md)}`);
+});
+document.getElementById("occasionList").addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-del-occasion]");
+  if (!btn) return;
+  const before = settings.occasions;
+  settings.occasions = (before || []).filter(o => o.id !== btn.dataset.delOccasion);
+  saveSettings(settings);
+  renderOccasions();
+  renderWeek();
+  showToast("Occasion removed", { undo: () => { settings.occasions = before; saveSettings(settings); renderOccasions(); renderWeek(); } });
+});
+
 function renderSettingsView() {
+  renderDayRules();
+  renderOccasions();
   renderWho();
   renderCalendarSettings();
   renderAisleOrder();

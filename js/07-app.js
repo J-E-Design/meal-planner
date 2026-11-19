@@ -24,6 +24,67 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
   });
 });
 
+// ---- Share the week / shopping list (phone's Share menu, or copy as a fallback) ----
+async function shareText(title, text) {
+  try {
+    if (navigator.share) { await navigator.share({ title, text }); return; }
+  } catch (e) {
+    if (e && e.name === "AbortError") return; // closed the share sheet
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Copied — paste it into WhatsApp or a message");
+  } catch (e) {
+    showAlert(text, "Here it is to copy");
+  }
+}
+function weekShareText(offset = viewOffset) {
+  const days = weekDays(offset);
+  const lines = DAYS.map((day, i) => {
+    const d = days[i];
+    const date = dayDate(offset, i);
+    const note = notes[isoDate(date)];
+    const occ = occasionOn(isoDate(date));
+    let what = !d ? "—" : d.eatingOut ? `🥡 ${d.text}` : `${getMealEmoji(d.text)} ${d.text}${d.leftover ? " (leftovers)" : ""}`;
+    if (occ) what += ` ${occ.emoji || "🎉"} ${occ.label}`;
+    if (note) what += ` · ${note}`;
+    return `${day} ${date.getDate()}: ${what}`;
+  });
+  return `What's for tea — ${weekTitle(offset).toLowerCase()} (${weekRangeLabel(offset)}) 🍲\n\n${lines.join("\n")}`;
+}
+function listShareText() {
+  const view = shopView();
+  const ticked = new Set(view.ticks);
+  const staples = new Set(Array.isArray(settings.staples) ? settings.staples : []);
+  const items = buildShoppingList(view).filter(i => !ticked.has(i.key) && !(staples.has(i.key) && !i.extra));
+  if (!items.length) return "";
+  const groups = orderedAisles().map(a => {
+    const g = items.filter(i => i.aisle === a.id);
+    return g.length ? `${a.emoji} ${a.label.toUpperCase()}\n${g.map(i => `• ${formatShoppingItem(i)}`).join("\n")}` : "";
+  }).filter(Boolean);
+  return `Shopping list 🛒\n\n${groups.join("\n\n")}`;
+}
+document.getElementById("shareWeekBtn").addEventListener("click", () => {
+  if (!week.some(d => d)) { showToast("Nothing planned yet — shuffle first"); return; }
+  shareText("What's for tea", weekShareText());
+});
+document.getElementById("shareListBtn").addEventListener("click", () => {
+  const text = listShareText();
+  if (!text) { showToast("Nothing left to buy"); return; }
+  shareText("Shopping list", text);
+});
+
+// ---- Home-screen shortcuts (long-press the app icon): ?view=shop / plan / meals&add=1 ----
+function handleLaunchView() {
+  const q = new URLSearchParams(location.search);
+  const view = q.get("view");
+  if (!view || q.get("share_url") || q.get("share_text")) return;
+  window.history.replaceState(null, "", location.pathname);
+  const btn = document.querySelector(`.nav-btn[data-view="${view}"]`);
+  if (btn) btn.click();
+  if (view === "meals" && q.get("add")) openMealModal(null);
+}
+
 // ---- Accessibility: dialogs announce themselves, Escape closes the top one ----
 document.querySelectorAll(".modal-overlay").forEach((overlay, n) => {
   const box = overlay.querySelector(".modal, .swipe-sheet");

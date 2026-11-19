@@ -274,6 +274,7 @@ async function init() {
   renderSettingsView();
   if (!getMe()) setTimeout(openWhoModal, 600);
   handleShareTarget();
+  handleLaunchView();
 }
 document.getElementById("retryBtn").addEventListener("click", () => {
   setBodyState("state-loading");

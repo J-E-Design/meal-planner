@@ -101,25 +101,44 @@ function weeksSinceEaten(name) {
 }
 
 let mealSearch = "";
+let mealTagFilter = "";
 function mealMatches(m, query) {
-  const haystack = (m.name + " " + (m.ingredients || []).join(" ")).toLowerCase();
+  const tags = (Array.isArray(m.tags) ? m.tags : []).map(t => (tagInfo(t) || {}).label || "").join(" ");
+  const haystack = (m.name + " " + (m.ingredients || []).join(" ") + " " + tags).toLowerCase();
   return query.toLowerCase().split(/\s+/).filter(Boolean).every(word => haystack.includes(word));
 }
+function renderTagFilter() {
+  const box = document.getElementById("tagFilter");
+  const inUse = MEAL_TAGS.filter(t => meals.some(m => Array.isArray(m.tags) && m.tags.includes(t.id)));
+  if (mealTagFilter && !inUse.some(t => t.id === mealTagFilter)) mealTagFilter = "";
+  box.hidden = !inUse.length;
+  box.innerHTML = inUse.map(t =>
+    `<button type="button" class="chip tag-chip${mealTagFilter === t.id ? " active" : ""}" data-tag-filter="${t.id}" aria-pressed="${mealTagFilter === t.id}">${escapeHtml(tagLabel(t.id))}</button>`
+  ).join("");
+}
+document.getElementById("tagFilter").addEventListener("click", (e) => {
+  const chip = e.target.closest("[data-tag-filter]");
+  if (!chip) return;
+  mealTagFilter = mealTagFilter === chip.dataset.tagFilter ? "" : chip.dataset.tagFilter;
+  renderMeals();
+});
 
 function renderMeals() {
   const list = document.getElementById("mealsList");
   const favs = meals.filter(m => m.favourite).length;
   const query = mealSearch.trim();
-  const shown = query ? meals.filter(m => mealMatches(m, query)) : meals;
+  renderTagFilter();
+  const shown = meals.filter(m => (!query || mealMatches(m, query)) && (!mealTagFilter || (Array.isArray(m.tags) && m.tags.includes(mealTagFilter))));
+  const filtered = query || mealTagFilter;
   document.getElementById("mealsCount").textContent = meals.length === 0 ? ""
-    : query ? `${shown.length} of ${meals.length} meals match`
+    : filtered ? `${shown.length} of ${meals.length} meals${mealTagFilter ? " · " + tagLabel(mealTagFilter) : ""}`
     : `${meals.length} meal${meals.length === 1 ? "" : "s"}` + (favs ? ` · ${favs} favourite${favs === 1 ? "" : "s"}` : "");
   if (meals.length === 0) {
     list.innerHTML = `<div class="empty-state">🍽️ No meals yet. Tap “Add a meal” to add your first favourite.</div>`;
     return;
   }
   if (shown.length === 0) {
-    list.innerHTML = `<div class="empty-state">No meals match “${escapeHtml(query)}”.</div>`;
+    list.innerHTML = `<div class="empty-state">No meals match${query ? ` “${escapeHtml(query)}”` : ""}${mealTagFilter ? ` with ${escapeHtml(tagLabel(mealTagFilter))}` : ""}.</div>`;
     return;
   }
   list.innerHTML = shown.map(m => `
@@ -141,6 +160,8 @@ function renderMeals() {
       <div class="meal-ing">${(m.ingredients||[]).map(escapeHtml).join(", ") || "No ingredients added"}</div>
       ${m.defrost ? `<div class="meal-tag">🧊 Defrost the night before</div>` : ""}
       ${(() => { const w = weeksSinceEaten(m.name); return w >= 4 ? `<div class="meal-tag ages-tag">${currentLook().noEmoji ? "" : "🕰️ "}Not had for ${w} weeks</div>` : ""; })()}
+      ${Array.isArray(m.tags) && m.tags.some(t => tagInfo(t)) ? `<div class="meal-tags">${m.tags.filter(t => tagInfo(t)).map(t => `<span class="meal-tag-chip">${escapeHtml(tagLabel(t))}</span>`).join("")}</div>` : ""}
+      ${m.leftover ? `<div class="meal-tag leftover-tag">${currentLook().noEmoji ? "" : "♻️ "}Leftovers make ${escapeHtml(m.leftover)}</div>` : ""}
       ${m.sourceUrl ? `<a href="${escapeHtml(m.sourceUrl)}" target="_blank" rel="noopener" class="meal-recipe-link">📖 Recipe</a>` : ""}
     </div>
   `).join("");
@@ -226,12 +247,34 @@ function openMealModal(id, prefill) {
   document.getElementById("mealIngInput").value = meal ? (meal.ingredients || []).join("\n") : (prefill ? prefill.ingredients.join("\n") : "");
   document.getElementById("mealDefrostCheckbox").checked = !!(meal && meal.defrost);
   document.getElementById("mealServesInput").value = (meal && meal.servings) || (prefill && parseServings(prefill.servings)) || "";
+  editingTags = new Set(meal && Array.isArray(meal.tags) ? meal.tags : []);
+  renderTagPicker();
+  const leftoverSel = document.getElementById("mealLeftoverSelect");
+  leftoverSel.innerHTML = `<option value="">No leftovers</option>` + meals
+    .filter(x => !meal || x.id !== meal.id)
+    .map(x => `<option value="${escapeHtml(x.name)}">${escapeHtml(x.name)}</option>`).join("");
+  leftoverSel.value = meal && meal.leftover && mealByName(meal.leftover) ? meal.leftover : "";
   document.getElementById("importUrlInput").value = "";
   document.getElementById("importStatus").textContent = "";
   document.getElementById("importStatus").className = "import-status";
   document.getElementById("mealModalOverlay").classList.add("active");
   document.getElementById(id || prefill ? "mealNameInput" : "importUrlInput").focus();
 }
+// Tag chips in the meal editor
+let editingTags = new Set();
+function renderTagPicker() {
+  document.getElementById("mealTagPicker").innerHTML = MEAL_TAGS.map(t =>
+    `<button type="button" class="chip tag-chip${editingTags.has(t.id) ? " active" : ""}" data-tag="${t.id}" aria-pressed="${editingTags.has(t.id)}">${escapeHtml(tagLabel(t.id))}</button>`
+  ).join("");
+}
+document.getElementById("mealTagPicker").addEventListener("click", (e) => {
+  const chip = e.target.closest("[data-tag]");
+  if (!chip) return;
+  const id = chip.dataset.tag;
+  if (editingTags.has(id)) editingTags.delete(id); else editingTags.add(id);
+  renderTagPicker();
+});
+
 function closeMealModal() {
   document.getElementById("mealModalOverlay").classList.remove("active");
   editingMealId = null;
@@ -291,7 +334,7 @@ function handleShareTarget() {
   const q = new URLSearchParams(location.search);
   const shared = [q.get("share_url"), q.get("share_text"), q.get("share_title")].filter(Boolean).join(" ");
   if (!shared) return;
-  history.replaceState(null, "", location.pathname);
+  window.history.replaceState(null, "", location.pathname);
   const link = (shared.match(/https?:\/\/\S+/i) || [""])[0];
   if (!link) return;
   document.querySelector('.nav-btn[data-view="meals"]').click();
@@ -316,22 +359,34 @@ document.getElementById("mealSaveBtn").addEventListener("click", () => {
 
   const defrost = document.getElementById("mealDefrostCheckbox").checked;
   const servings = parseServings(document.getElementById("mealServesInput").value);
+  const tags = MEAL_TAGS.map(t => t.id).filter(id => editingTags.has(id));
+  const leftover = document.getElementById("mealLeftoverSelect").value;
   if (editingMealId) {
     const meal = mealById(editingMealId);
     meal.name = name;
     meal.ingredients = ingredients;
     if (defrost) meal.defrost = true; else delete meal.defrost;
     if (servings) meal.servings = servings; else delete meal.servings;
+    if (tags.length) meal.tags = tags; else delete meal.tags;
+    if (leftover && leftover !== name) meal.leftover = leftover; else delete meal.leftover;
     if (editingMealImage) meal.image = editingMealImage; else delete meal.image;
     if (editingMealSourceUrl) meal.sourceUrl = editingMealSourceUrl;
     if (oldName && oldName !== name) {
       mapUpcomingWeeks(d => (d && d.text === oldName) ? { ...d, text: name } : d);
+      // Keep "leftovers make ..." links and occasion meals pointing at the renamed meal
+      meals.forEach(x => { if (x.leftover === oldName) x.leftover = name; });
+      if (Array.isArray(settings.occasions) && settings.occasions.some(o => o.meal === oldName)) {
+        settings.occasions = settings.occasions.map(o => o.meal === oldName ? { ...o, meal: name } : o);
+        saveSettings(settings);
+      }
     }
   } else {
     meals.push({
       id: uid(), name, ingredients, sourceUrl: editingMealSourceUrl || undefined,
       ...(defrost ? { defrost: true } : {}), ...(editingMealImage ? { image: editingMealImage } : {}),
       ...(servings ? { servings } : {}),
+      ...(tags.length ? { tags } : {}),
+      ...(leftover && leftover !== name ? { leftover } : {}),
     });
   }
   saveMeals(meals);
@@ -437,6 +492,8 @@ document.getElementById("restoreFileInput").addEventListener("change", (e) => {
       ...(m.defrost ? { defrost: true } : {}),
       ...(typeof m.image === "string" ? { image: m.image } : {}),
       ...(parseServings(m.servings) ? { servings: parseServings(m.servings) } : {}),
+      ...(Array.isArray(m.tags) ? { tags: m.tags.filter(t => tagInfo(t)) } : {}),
+      ...(typeof m.leftover === "string" ? { leftover: m.leftover } : {}),
     }));
     saveMeals(meals);
     renderMeals();

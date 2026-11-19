@@ -592,3 +592,53 @@
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
     body::before, body::after { animation: none !important; }
   }
+
+  /* ---- Tags, day rules, leftovers, occasions, tonight actions ---- */
+  .tag-picker { margin: 0 0 14px; }
+  .chip.tag-chip { font-size: 13px; padding: 7px 12px; }
+  .chip.tag-chip.active { background: #5B7F4B; color: #fff; border-color: #5B7F4B; }
+  .tag-filter { margin: 0 0 12px; }
+  .tag-filter:empty { display: none; }
+  .meal-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .meal-tag-chip { font-size: 11.5px; font-weight: 700; color: var(--muted); background: var(--row-bg); border-radius: 999px; padding: 3px 9px; }
+  .day-tag { font-size: 11.5px; font-weight: 800; margin-top: 2px; color: var(--muted); }
+  .day-tag.leftover-tag { color: #4E7A3E; }
+  .day-tag.occasion-tag { color: #C34C82; }
+  .meal-tag.leftover-tag { color: #4E7A3E; }
+  .day-rule-row { margin-bottom: 6px; padding-top: 8px; padding-bottom: 8px; }
+  .occasion-list { list-style: none; margin: 0 0 10px; padding: 0; }
+  .occasion-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--card-bg);
+    border: 1.5px solid var(--border); border-radius: 12px; padding: 8px 10px 8px 14px; margin-bottom: 8px;
+  }
+  .occasion-what { font-size: 14px; color: var(--text); min-width: 0; }
+  .occasion-form { display: flex; flex-direction: column; gap: 8px; }
+  .occasion-form .field-input, .occasion-form .field-select { margin: 0; }
+  .occasion-form-row { display: flex; gap: 8px; }
+  .occasion-form-row > * { flex: 1; min-width: 0; }
+  .tonight-actions { display: none; gap: 8px; justify-content: center; margin: 10px 0 0; }
+  .tonight-action {
+    border: 1.5px solid var(--border2); background: var(--card-bg); color: var(--text); border-radius: 999px;
+    padding: 7px 14px; font-family: inherit; font-weight: 700; font-size: 13px; cursor: pointer; text-decoration: none;
+  }
+  .tonight-action[hidden] { display: none; }
+  [data-look="fridge"] .tonight-actions, [data-look="chalk"] .tonight-actions, [data-look="calm"] .tonight-actions { display: flex; }
+  #planView.future-week .tonight-actions { display: none !important; }
+
+  /* ---- Always in the cupboard ---- */
+  .staple-toggle {
+    margin-left: auto; flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--border2);
+    background: transparent; font-size: 16px; cursor: pointer; opacity: 0.45; filter: grayscale(1);
+  }
+  .staple-toggle.active { opacity: 1; filter: none; background: var(--row-bg); border-color: var(--muted); }
+  .shop-list.move-mode .aisle-pick { margin-left: 0; }
+  .shop-list .cupboard-hint { list-style: none; margin: 0 0 4px -18px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .shop-list .shop-item.cupboard-item { list-style: none; margin-left: -18px; }
+  .shop-list .shop-item.cupboard-item::before { display: none !important; }
+  .cupboard-btn {
+    display: flex; align-items: center; justify-content: space-between; width: 100%; border: none; background: transparent;
+    color: var(--muted); font: inherit; text-align: left; padding: 2px 0; cursor: pointer;
+  }
+  .cupboard-add { font-weight: 800; color: var(--muted2); margin-left: 8px; }
+  .week-header-links { display: flex; gap: 10px; align-items: center; }
+  .shop-actions { flex-wrap: wrap; }

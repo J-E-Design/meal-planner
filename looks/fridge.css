@@ -358,3 +358,13 @@
 [data-look="fridge"] .stat-big { font-family: var(--round); font-weight: 700; color: var(--accent); }
 [data-look="fridge"] .stats-since { font-family: var(--hand); font-size: 19px; }
 [data-look="fridge"] .stats-h { font-family: var(--round); font-weight: 600; }
+
+/* ---- Tags, rules, occasions, tonight actions ---- */
+[data-look="fridge"] .chip.tag-chip.active { background: var(--primary); border-color: var(--primary); }
+[data-look="fridge"] .meal-tag-chip { font-family: var(--round); font-weight: 500; background: var(--bg); }
+[data-look="fridge"] .day-tag { font-family: var(--hand); font-size: 16px; font-weight: 700; }
+[data-look="fridge"] .occasion-row { background: var(--paper); border-color: transparent; box-shadow: var(--shadow); }
+[data-look="fridge"] .tonight-action { background: var(--paper); border-color: transparent; box-shadow: var(--shadow); font-family: var(--round); font-weight: 500; }
+[data-look="fridge"] .shop-list .cupboard-hint, [data-look="fridge"] .shop-list .shop-item.cupboard-item { margin-left: 0; }
+[data-look="fridge"] .shop-list .cupboard-hint { font-family: var(--hand); font-size: 17px; line-height: 36px; height: 36px; }
+[data-look="fridge"] .cupboard-btn { font-family: var(--hand); font-size: 23px; line-height: 36px; padding: 0 18px 0 0; }

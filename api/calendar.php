@@ -114,7 +114,7 @@ foreach ($weeks as $week_key => $days) {
         $text = $day ? trim((string)$day['text']) : '';
         $meal = $day ? ($by_name[mb_strtolower($text)] ?? null) : null;
         $eating_out = $day && !empty($day['eatingOut']);
-        $summary = $day ? (($eating_out ? '🥡 ' : '🍲 ') . $text) : '📝 ' . $note;
+        $summary = $day ? (($eating_out ? '🥡 ' : '🍲 ') . $text . (!empty($day['leftover']) ? ' (leftovers)' : '')) : '📝 ' . $note;
 
         $desc = [];
         if ($note !== '' && $day) $desc[] = '📝 ' . $note;
@@ -164,6 +164,27 @@ foreach ($weeks as $week_key => $days) {
             $lines[] = 'END:VALARM';
             $lines[] = 'END:VEVENT';
         }
+    }
+}
+
+// Special occasions (birthdays etc.): an all-day event every year on that date
+$occasions = (is_array($settings) && isset($settings['occasions']) && is_array($settings['occasions'])) ? $settings['occasions'] : [];
+foreach ($occasions as $o) {
+    if (!is_array($o) || empty($o['md']) || !preg_match('/^(\d{2})-(\d{2})$/', (string)$o['md'], $md) || empty($o['label'])) continue;
+    foreach (array_unique([(int)$from->format('Y'), (int)$to->format('Y')]) as $year) {
+        if (!checkdate((int)$md[1], (int)$md[2], $year)) continue;
+        $day = new DateTime(sprintf('%04d-%02d-%02d', $year, $md[1], $md[2]), $tz);
+        if ($day < $from || $day > $to) continue;
+        $id = preg_replace('/[^A-Za-z0-9]/', '', (string)($o['id'] ?? $o['md']));
+        $lines[] = 'BEGIN:VEVENT';
+        $lines[] = "UID:occasion-$id-$year@whats-for-tea";
+        $lines[] = "DTSTAMP:$stamp";
+        $lines[] = 'DTSTART;VALUE=DATE:' . $day->format('Ymd');
+        $lines[] = 'DTEND;VALUE=DATE:' . (clone $day)->modify('+1 day')->format('Ymd');
+        $lines[] = 'SUMMARY:' . ics_escape(trim(($o['emoji'] ?? '🎉') . ' ' . $o['label']));
+        if (!empty($o['meal'])) $lines[] = 'DESCRIPTION:' . ics_escape('Special tea: ' . $o['meal']);
+        $lines[] = 'TRANSP:TRANSPARENT';
+        $lines[] = 'END:VEVENT';
     }
 }
 

@@ -55,6 +55,10 @@
   <!-- PLAN VIEW -->
   <div class="view active" id="planView">
     <button class="tonight-card" id="tonightCard" type="button"></button>
+    <div class="tonight-actions" id="tonightActions">
+      <button type="button" class="tonight-action" id="spinTonightBtn">🎰 Spin for tonight</button>
+      <a class="tonight-action" id="tonightRecipeLink" href="#" target="_blank" rel="noopener" hidden>📖 Recipe</a>
+    </div>
     <div class="week-nav" role="group" aria-label="Choose a week">
       <button type="button" class="week-nav-btn" id="weekPrev" aria-label="Previous week">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
@@ -82,8 +86,11 @@
     </div>
 
     <div class="week-header">
-      <h2>Drag a day to swap · locked days stay put</h2>
-      <button class="reset-link" id="resetWeekBtn">Reset week</button>
+      <h2>Drag a day to swap</h2>
+      <span class="week-header-links">
+        <button class="reset-link" id="shareWeekBtn">Share</button>
+        <button class="reset-link" id="resetWeekBtn">Reset week</button>
+      </span>
     </div>
 
     <div id="weekList"></div>
@@ -107,6 +114,7 @@
       <ul class="shop-list" id="shopList"></ul>
       <div class="shop-actions">
         <button class="btn-secondary" id="clearTicksBtn" hidden>✓ Finish shop</button>
+        <button class="btn-secondary move-items-btn" id="shareListBtn">📤 Share list</button>
         <button class="btn-secondary move-items-btn" id="moveItemsBtn" aria-pressed="false">↕ Move items</button>
       </div>
     </div>
@@ -144,6 +152,7 @@
       </div>
     </div>
     <p class="meals-count" id="mealsCount"></p>
+    <div class="chip-row tag-filter" id="tagFilter" role="group" aria-label="Filter by tag"></div>
     <div id="mealsList"></div>
     <input type="file" id="restoreFileInput" accept="application/json,.json" hidden>
   </div>
@@ -195,6 +204,28 @@
     <div class="settings-section">
       <h2 class="settings-heading">📊 Your year in tea</h2>
       <button type="button" class="btn-secondary stats-open" id="statsOpenBtn">See your stats — most eaten, takeaways, vetoes…</button>
+    </div>
+    <div class="settings-section">
+      <h2 class="settings-heading">🗓️ Day rules</h2>
+      <p class="hint">Give a day a type of meal and the shuffle picks a matching one (tag your meals in My meals).</p>
+      <div class="day-rules" id="dayRules"></div>
+      <div class="toggle-row">
+        <label for="weeklyNewToggle">✨ One “new to try” meal each week</label>
+        <input type="checkbox" id="weeklyNewToggle" class="switch">
+      </div>
+    </div>
+    <div class="settings-section">
+      <h2 class="settings-heading">🎂 Special occasions</h2>
+      <p class="hint">Birthdays, anniversaries… They show on the day, in the calendar, and can have their own meal.</p>
+      <ul class="occasion-list" id="occasionList"></ul>
+      <form class="occasion-form" id="occasionForm" autocomplete="off">
+        <input class="field-input" id="occasionLabel" maxlength="40" placeholder="e.g. Sam's birthday" aria-label="Occasion">
+        <div class="occasion-form-row">
+          <input class="field-input" id="occasionDate" type="date" aria-label="Date">
+          <select class="field-select" id="occasionMeal" aria-label="Meal for the day"></select>
+        </div>
+        <button type="submit" class="btn-secondary">＋ Add occasion</button>
+      </form>
     </div>
     <div class="settings-section">
       <h2 class="settings-heading">🛒 Shopping</h2>
@@ -302,6 +333,10 @@
       <label class="field-label" for="mealServesInput">Serves <span class="field-hint">(optional — scales the shopping list to how many you cook for)</span></label>
       <input class="field-input serves-input" id="mealServesInput" type="number" inputmode="numeric" min="1" max="12" placeholder="e.g. 4">
     </div>
+    <label class="field-label">Tags <span class="field-hint">(used by day rules and filters)</span></label>
+    <div class="chip-row tag-picker" id="mealTagPicker" role="group" aria-label="Tags"></div>
+    <label class="field-label" for="mealLeftoverSelect">♻️ Leftovers make… <span class="field-hint">(optional — the shuffle puts it on the next day)</span></label>
+    <select class="field-select" id="mealLeftoverSelect"></select>
     <div class="lock-row meal-defrost-row">
       <input type="checkbox" id="mealDefrostCheckbox">
       <label for="mealDefrostCheckbox">🧊 Needs defrosting the night before

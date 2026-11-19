@@ -8,6 +8,8 @@
   try { localStorage.clear(); } catch (e) {}
   try {
     localStorage.setItem("mp_look", q.get("look") || "fridge");
+    // index.html picks the look in <head> before this file runs, so apply it here too
+    document.documentElement.dataset.look = q.get("look") || "fridge";
     if (!q.has("locked")) localStorage.setItem("mp_key", PASSCODE);
     localStorage.setItem("mp_me", "Alex");
   } catch (e) {}
@@ -197,6 +199,86 @@
       expect(document.body.classList.contains("state-locked"), "wrong passcode stays locked");
       $("#lockInput").value = " TEST-passcode "; $("#lockForm").requestSubmit(); await wait(900);
       expect(document.body.classList.contains("state-ready"), "right passcode unlocks");
+    },
+    async day_rules_and_new() {
+      settings.dayRules = { 3: "quick", 5: "fish" };
+      settings.weeklyNew = true;
+      for (let r = 0; r < 400; r++) {
+        week = emptyWeek();
+        const w = pickWeek();
+        expect(mealTags(w[3].text).includes("quick"), "Wednesday should be quick, got " + w[3].text);
+        expect(mealTags(w[5].text).includes("fish"), "Friday should be fish, got " + w[5].text);
+        expect(w.some(d => d && mealTags(d.text).includes("new")), "a new-to-try meal each week: " + w.map(d => d && d.text + (d.leftover ? "(L)" : "")).join(", "));
+        const names = w.map(d => d.text);
+        expect(new Set(names).size === names.length, "no repeats: " + names.join(", "));
+      }
+    },
+    async leftovers() {
+      let paired = 0;
+      for (let r = 0; r < 200; r++) {
+        week = emptyWeek();
+        const w = pickWeek();
+        const i = w.findIndex(d => d && d.text === "Roast chicken");
+        if (i >= 0 && i < 6) {
+          expect(w[i + 1].text === "Chicken sandwiches" && w[i + 1].leftover, "sandwiches follow roast chicken: " + w.map(d => d.text).join(", "));
+          paired++;
+        }
+      }
+      expect(paired > 0, "roast chicken came up at least once");
+    },
+    async cupboard_items() {
+      await nav("shop");
+      click("#moveItemsBtn"); await wait(100);
+      click('[data-staple="gravy"]'); await wait(200);
+      click("#moveItemsBtn"); await wait(100);
+      expect(state.settings.staples.includes("gravy"), "staple saved");
+      expect(!$('[data-tick="gravy"]'), "gravy hidden from the list");
+      expect($('[data-running-low="gravy"]'), "gravy in the cupboard section");
+      click('[data-running-low="gravy"]'); await wait(400);
+      expect($('[data-tick="gravy"]'), "running low adds it back to the list");
+    },
+    async spin_tonight() {
+      const i = new Date().getDay();
+      const days = weekDays(0).slice(); days[i] = { text: "Omelette", locked: false };
+      savePlanWeek(weekKey(0), days); week = days; renderWeek(); await wait(300);
+      click("#spinTonightBtn"); await wait(1800);
+      const now = state.plan.weeks[weekKey(0)][i];
+      expect(now && now.text !== "Omelette", "tonight changed: " + (now && now.text));
+      click(".toast-action"); await wait(400);
+      expect(state.plan.weeks[weekKey(0)][i].text === "Omelette", "undo restores tonight");
+    },
+    async tags_filter() {
+      await nav("meals");
+      click('[data-tag-filter="veggie"]'); await wait(100);
+      const names = $$(".meal-card .meal-name").map(e => e.textContent.trim());
+      expect(names.length === 2 && names.every(n => /Stir fry|Omelette/.test(n)), "veggie filter: " + names.join(", "));
+      click('[data-tag-filter="veggie"]'); await wait(100); // clear the filter again
+      click('[data-edit="m9"]'); await wait(100);
+      click('#mealTagPicker [data-tag="veggie"]'); click("#mealSaveBtn"); await wait(300);
+      expect(state.meals.find(m => m.id === "m9").tags.includes("veggie"), "tag saved from editor");
+    },
+    async occasion() {
+      const d = new Date(); d.setDate(d.getDate() + 7 - d.getDay() + 2); // Tuesday next week
+      settings.occasions = [{ id: "o1", md: isoDate(d).slice(5), label: "Sam's birthday", emoji: "🎂", meal: "Lasagne" }];
+      click("#weekNext"); await wait(100);
+      click("#shuffleBtn"); await wait(900);
+      expect(state.plan.weeks[weekKey(1)][2].text === "Lasagne", "occasion meal placed");
+      expect(($("#day-2 .occasion-tag") || {}).textContent.includes("birthday"), "occasion shown on the day");
+    },
+    async share_text() {
+      const t = weekShareText(0);
+      expect(t.includes("Tacos") && t.includes("Thu"), "week text: " + t);
+      const l = listShareText();
+      expect(l.includes("FRUIT & VEG") && l.includes("• 3 onions"), "list text: " + l);
+    },
+    async share_target() {
+      // Android "Share → What's for tea?" opens the app with ?share_text=...; it should import the recipe
+      expect($("#mealModalOverlay").classList.contains("active"), "Add a meal opened");
+      expect($("#mealNameInput").value === "Test curry", "recipe imported from the shared link");
+      expect(!location.search.includes("share_text"), "address tidied up afterwards");
+    },
+    async launch_view() {
+      expect($("#shopView").classList.contains("active"), "opened on the shopping list from ?view=shop");
     },
     async escape_closes_dialog() {
       click('[data-open="0"]'); await wait(100);
