@@ -1228,7 +1228,7 @@ const AISLE_RULES = [
   ["meat", /mince|beef|chicken|turkey|pork|lamb|steak|sausage|bacon|pancetta|\bham\b|gammon|chorizo|salami|meatball|fish|salmon|\bcod\b|haddock|prawn|tuna|mackerel|tofu|quorn/i],
   ["dairy", /chees|cheddar|mozzarella|parmesan|halloumi|feta|milk|cream|butter|yog|cr[eè]me|\beggs?\b/i],
   ["bakery", /bread|\brolls?\b|\bwraps?\b|tortilla|pitta|naan|bagel|baguette|\bbuns?\b|crumpet|pizza base|croissant/i],
-  ["veg", /onion|garlic|potato|carrot|broccoli|lettuce|tomato|pepper|mushroom|coriander|parsley|basil|ginger|lemon|lime|spinach|\bpeas\b|courgette|leek|celery|cucumber|avocado|herb|\bveg|salad|sweetcorn|cabbage|cauliflower|parsnip|swede|apple|banana|berr|fruit|chilli|kale|beansprout|squash|aubergine/i],
+  ["veg", /onion|garlic|potato|carrot|broc+o?l+[iy]|brocc?oli|let+uce|lettice|tomato|pepper|mush?r+o+m|coriander|parsley|basil|ginger|lemon|lime|spinach|\bpeas\b|courgett?e|zucchini|leek|celery|cucumber|avocado|herb|\bveg|salad|sweetcorn|cabbage|cauli|parsnip|swede|apple|banana|berr|fruit|chilli|kale|beansprout|squash|aubergine/i],
 ];
 function aisleFor(text) {
   for (const [id, re] of AISLE_RULES) if (re.test(text)) return id;
