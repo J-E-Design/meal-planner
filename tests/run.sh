@@ -12,7 +12,7 @@ echo "== Unit checks"; node tests/unit.js | tail -n 1 || FAIL=1
 node tests/unit.js >/dev/null || FAIL=1
 echo "== Colour contrast"; node tests/contrast.js || FAIL=1
 for f in api/*.php; do php -l "$f" >/dev/null || { echo "PHP syntax error in $f"; FAIL=1; }; done
-node --check app.js || FAIL=1
+for f in js/*.js; do node --check "$f" || FAIL=1; done
 [ "${1:-}" = "unit" ] && exit $FAIL
 
 # Find Chrome / Edge / Chromium
@@ -23,13 +23,15 @@ for c in "/c/Program Files/Google/Chrome/Application/chrome.exe" "/c/Program Fil
 done
 [ -z "$CHROME" ] && { echo "No Chrome found - skipping browser tests"; exit $FAIL; }
 
-# Build a test copy of the app with the fake server + cases loaded before app.js
+# Build a test copy of the app with the fake server + cases loaded before the app's scripts
 TMP="$ROOT/tests/.tmp"
 rm -rf "$TMP"; mkdir -p "$TMP/looks"
-cp index.html styles.css app.js manifest.json icon.svg icon-192.png "$TMP/"
+cp index.html styles.css manifest.json icon.svg icon-192.png "$TMP/"
+cp -r js "$TMP/"
 cp looks/*.css "$TMP/looks/"
 cp tests/fixture.js tests/harness.js "$TMP/"
-sed -i 's#<script src="app.js"></script>#<script src="fixture.js"></script>\n<script src="harness.js"></script>\n<script src="app.js"></script>#' "$TMP/index.html"
+sed -i 's#<script src="js/01-core.js"></script>#<script src="fixture.js"></script>\n<script src="harness.js"></script>\n<script src="js/01-core.js"></script>#' "$TMP/index.html"
+grep -q 'src="harness.js"' "$TMP/index.html" || { echo "Couldn't add the test harness to index.html"; exit 1; }
 
 CASES="loads shuffle_no_duplicates shuffle_keeps_locked next_week notes shopping_aisles_and_quantities ticks_offline_then_sync extras_and_finish_shop move_item_aisle veto rating swipe_and_match search_meals delete_meal_undo import_recipe backup_restore lock_screen escape_closes_dialog"
 echo "== Browser tests"

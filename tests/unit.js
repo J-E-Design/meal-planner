@@ -1,8 +1,10 @@
-// Fast checks of the pure logic in app.js (no browser needed): aisle rules and quantities.
+// Fast checks of the pure logic in js/*.js (no browser needed): aisle rules and quantities.
 // Run from the repo root:  node tests/unit.js
 const fs = require("fs");
 const path = require("path");
-const src = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+// The app is split into js/01-*.js ... js/07-*.js; read them joined, in order.
+const jsDir = path.join(__dirname, "..", "js");
+const src = fs.readdirSync(jsDir).filter((f) => f.endsWith(".js")).sort().map((f) => fs.readFileSync(path.join(jsDir, f), "utf8")).join("\n");
 const grab = (start, end) => {
   const i = src.indexOf(start);
   const j = src.indexOf(end, i);
