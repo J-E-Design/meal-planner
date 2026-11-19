@@ -9,6 +9,12 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="looks/fridge.css">
+<script>
+  // Apply this device's chosen look before first paint (no flash of the classic look).
+  try { document.documentElement.dataset.look = localStorage.getItem("mp_look") || "classic"; }
+  catch (e) { document.documentElement.dataset.look = "classic"; }
+</script>
 </head>
 <body class="state-loading">
 
@@ -33,6 +39,7 @@
 
   <!-- PLAN VIEW -->
   <div class="view active" id="planView">
+    <button class="tonight-card" id="tonightCard" type="button"></button>
     <div class="shuffle-wrap">
       <button class="shuffle-btn" id="shuffleBtn">
         <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.5 9a9 9 0 0114.85-3.36L23 10M1 14l4.65 4.36A9 9 0 0020.5 15"/></svg>
@@ -74,6 +81,11 @@
 
   <!-- SETTINGS VIEW -->
   <div class="view" id="settingsView">
+    <div class="settings-section">
+      <h2 class="settings-heading">🎨 Look</h2>
+      <p class="hint">Just for this phone — you can each pick your own.</p>
+      <div class="look-grid" id="lookOptions"></div>
+    </div>
     <div class="settings-section">
       <h2 class="settings-heading">🔊 Shuffle sound</h2>
       <div id="soundOptions"></div>

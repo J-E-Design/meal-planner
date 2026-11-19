@@ -1,0 +1,285 @@
+/* =========================================================
+   Look A: "Fridge door"
+   Warm enamel door, paper notes held up with magnets,
+   a notepad shopping list and a handwritten accent.
+   Everything is scoped to html[data-look="fridge"].
+   ========================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Caveat:wght@600;700&display=swap');
+
+[data-look="fridge"] {
+  --bg: #EFE8DC;
+  --text: #2E2620;
+  --muted: #7D6F62;
+  --muted2: #A89B8C;
+  --card-bg: #FFFDF7;
+  --border: #E6DDCC;
+  --border2: #D9CDB8;
+  --input-bg: #FFFFFF;
+  --row-bg: #F3EDE2;
+  --locked-bg: #FFFDF7;
+  --locked-border: transparent;
+  --paper: #FFFDF7;
+  --paper-line: #E7DFD0;
+  --margin-line: #F0A898;
+  --accent: #D94F30;
+  --accent-dark: #A63A20;
+  --primary: #2F7D6B;
+  --primary-dark: #22594C;
+  --tape: rgba(245, 185, 66, 0.78);
+  --shadow: 0 1px 0 rgba(60, 40, 20, 0.05), 0 8px 16px -10px rgba(60, 40, 20, 0.45);
+  --grain-opacity: 0.5;
+  --hand: 'Caveat', 'Segoe Print', cursive;
+  --round: 'Fredoka', 'Baloo 2', system-ui, sans-serif;
+}
+[data-look="fridge"] body.dark-mode {
+  --bg: #1F1C19;
+  --text: #F1E9DD;
+  --muted: #B5A796;
+  --muted2: #847767;
+  --card-bg: #2D2823;
+  --border: #3B342D;
+  --border2: #4A4138;
+  --input-bg: #26221E;
+  --row-bg: #39322B;
+  --locked-bg: #2D2823;
+  --paper: #2D2823;
+  --paper-line: #3D362E;
+  --margin-line: #7A3B2E;
+  --accent: #F0704F;
+  --accent-dark: #B84A2E;
+  --primary: #4FA58F;
+  --primary-dark: #2F7D6B;
+  --tape: rgba(214, 160, 52, 0.55);
+  --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 10px 18px -10px rgba(0, 0, 0, 0.8);
+  --grain-opacity: 0.25;
+}
+
+/* ---- The door ---- */
+[data-look="fridge"] body {
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .35 0 0 0 0 .25 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  font-family: 'Nunito', system-ui, sans-serif;
+}
+[data-look="fridge"] body::before,
+[data-look="fridge"] body::after { display: none; }
+[data-look="fridge"] h1,
+[data-look="fridge"] h2 { font-family: var(--round); }
+
+[data-look="fridge"] .wrap { padding-top: 22px; }
+[data-look="fridge"] .header { text-align: left; padding: 0 4px; }
+[data-look="fridge"] .header h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.1; }
+[data-look="fridge"] .header p {
+  font-family: var(--hand); font-size: 22px; font-weight: 700; color: var(--accent);
+  transform: rotate(-1.2deg); transform-origin: left; margin-top: 2px;
+}
+
+/* ---- Magnets (shared bits) ---- */
+[data-look="fridge"] .tonight-magnet,
+[data-look="fridge"] .shop-card::before {
+  content: ""; position: absolute; width: 26px; height: 26px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #FF9A7A 0 18%, var(--accent) 45%, var(--accent-dark) 100%);
+  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.3), inset 0 -2px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* ---- Tonight card ---- */
+[data-look="fridge"] .tonight-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%;
+  position: relative; margin: 20px 0 6px; padding: 22px 20px 18px; text-align: left;
+  background: var(--paper); border: none; border-radius: 6px; box-shadow: var(--shadow);
+  color: var(--text); font-family: inherit; cursor: pointer; transform: rotate(-0.8deg);
+  transition: transform 0.15s ease;
+}
+[data-look="fridge"] .tonight-card:active { transform: rotate(-0.8deg) scale(0.98); }
+[data-look="fridge"] .tonight-magnet { top: -11px; left: 50%; margin-left: -13px; }
+[data-look="fridge"] .tonight-label {
+  font-size: 12px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: var(--accent);
+}
+[data-look="fridge"] .tonight-main { display: flex; align-items: center; gap: 12px; min-width: 0; width: 100%; }
+[data-look="fridge"] .tonight-emoji { font-size: 42px; line-height: 1; flex-shrink: 0; }
+[data-look="fridge"] .tonight-meal {
+  font-family: var(--round); font-weight: 700; font-size: 27px; line-height: 1.1; min-width: 0; overflow-wrap: anywhere;
+}
+[data-look="fridge"] .tonight-meal.empty { color: var(--muted2); }
+[data-look="fridge"] .tonight-sub { font-size: 13px; font-weight: 700; color: var(--muted); }
+[data-look="fridge"] .tonight-next {
+  font-family: var(--hand); font-size: 21px; font-weight: 700; color: var(--muted);
+  border-top: 1.5px dashed var(--paper-line); width: 100%; padding-top: 6px; margin-top: 6px;
+}
+
+/* ---- Shuffle button: a big glossy magnet ---- */
+[data-look="fridge"] .shuffle-wrap { margin: 22px 0 8px; }
+[data-look="fridge"] .shuffle-btn {
+  width: 128px; height: 128px; font-family: var(--round); font-weight: 600; font-size: 15px;
+  background: radial-gradient(circle at 34% 28%, #FF9A7A 0 12%, var(--accent) 48%, var(--accent-dark) 100%);
+  box-shadow: 0 8px 0 #7E2A15, 0 18px 26px rgba(120, 40, 20, 0.35), inset 0 -6px 10px rgba(0, 0, 0, 0.18);
+}
+[data-look="fridge"] .shuffle-btn:active { box-shadow: 0 3px 0 #7E2A15, 0 6px 12px rgba(120, 40, 20, 0.3); }
+
+/* ---- Week: paper notes ---- */
+[data-look="fridge"] .week-header { margin: 22px 4px 12px; }
+[data-look="fridge"] .week-header h2 {
+  font-family: var(--hand); font-size: 20px; font-weight: 700; color: var(--muted); transform: rotate(-0.6deg);
+}
+[data-look="fridge"] .reset-link { color: var(--accent); font-family: 'Nunito', sans-serif; }
+
+[data-look="fridge"] .day-row {
+  position: relative; background: var(--paper); border: none; border-radius: 5px;
+  box-shadow: var(--shadow); padding: 12px 12px 12px 10px; margin-bottom: 12px;
+}
+[data-look="fridge"] .day-row:nth-child(odd) { transform: rotate(-0.45deg); }
+[data-look="fridge"] .day-row:nth-child(even) { transform: rotate(0.4deg); }
+[data-look="fridge"] .day-row.pop-in { animation: fridgePlace 0.4s cubic-bezier(.2,.9,.3,1.2) backwards; }
+@keyframes fridgePlace {
+  0% { opacity: 0; translate: 0 -14px; scale: 1.04; }
+  100% { opacity: 1; translate: 0 0; scale: 1; }
+}
+
+/* Day badge becomes a round magnet in the day's colour */
+[data-look="fridge"] .day-badge {
+  width: 44px; height: 44px; border-radius: 50%; margin-right: 12px;
+  background:
+    radial-gradient(circle at 28% 22%, rgba(255,255,255,0.45) 0 7%, transparent 16%),
+    radial-gradient(circle at 40% 35%, var(--day-fg) 45%, color-mix(in srgb, var(--day-fg) 70%, #000) 100%);
+  color: #fff; font-family: var(--round); font-weight: 600; font-size: 13px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.25), inset 0 -2px 3px rgba(0, 0, 0, 0.15);
+}
+[data-look="fridge"] .day-meal { font-family: var(--round); font-weight: 600; font-size: 16px; }
+[data-look="fridge"] .day-meal.empty { font-family: var(--hand); font-size: 20px; font-weight: 700; }
+[data-look="fridge"] .lock-tag { font-family: var(--hand); font-size: 16px; font-weight: 700; color: var(--muted); }
+
+/* Today: circled in pen */
+[data-look="fridge"] .day-row.today { box-shadow: var(--shadow), 0 0 0 2px var(--accent); }
+[data-look="fridge"] .day-row.today::before {
+  content: "today"; position: absolute; top: -12px; right: 14px; font-family: var(--hand);
+  font-size: 18px; font-weight: 700; color: var(--accent); transform: rotate(3deg); line-height: 1;
+  background: var(--bg); padding: 0 5px; border-radius: 4px;
+}
+
+/* Locked: a strip of tape across the corner */
+[data-look="fridge"] .day-row.locked::after {
+  content: ""; position: absolute; top: -8px; left: 22px; width: 58px; height: 18px;
+  background: var(--tape); transform: rotate(-5deg); border-radius: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  -webkit-mask: linear-gradient(90deg, transparent 0 2px, #000 2px calc(100% - 2px), transparent calc(100% - 2px));
+          mask: linear-gradient(90deg, transparent 0 2px, #000 2px calc(100% - 2px), transparent calc(100% - 2px));
+}
+[data-look="fridge"] .day-row.eating-out { background: color-mix(in srgb, var(--paper) 88%, #F5B942); }
+
+[data-look="fridge"] .reroll-btn,
+[data-look="fridge"] .lock-btn { border-radius: 50%; background: var(--row-bg); color: var(--muted); }
+[data-look="fridge"] .lock-btn.active { background: var(--accent); color: #fff; }
+
+/* Slot-machine reel */
+[data-look="fridge"] .day-row.reeling .day-meal { animation: reelFlick 0.065s linear infinite; filter: blur(0.6px); color: var(--muted); }
+@keyframes reelFlick { 0% { transform: translateY(-3px); } 100% { transform: translateY(3px); } }
+[data-look="fridge"] .day-row.landed { animation: fridgeLand 0.42s cubic-bezier(.3,1.6,.5,1); }
+@keyframes fridgeLand { 0% { scale: 1.035; } 100% { scale: 1; } }
+
+/* ---- Shopping list: a notepad page ---- */
+[data-look="fridge"] .shop-card {
+  position: relative; background: var(--paper); border: none; border-radius: 4px; box-shadow: var(--shadow);
+  padding: 28px 18px 18px; margin-top: 26px;
+}
+[data-look="fridge"] .shop-card::before { top: -12px; left: 50%; margin-left: -13px; }
+[data-look="fridge"] .shop-card p.hint { font-family: var(--hand); font-size: 20px; font-weight: 700; color: var(--muted); }
+[data-look="fridge"] .shop-list {
+  list-style: none; padding: 0 0 0 40px; margin: 0 -18px 16px; font-family: var(--hand);
+  font-size: 23px; font-weight: 600; line-height: 36px; color: var(--text);
+  background:
+    linear-gradient(90deg, transparent 30px, var(--margin-line) 30px 32px, transparent 32px),
+    repeating-linear-gradient(to bottom, transparent 0 35px, var(--paper-line) 35px 36px);
+}
+[data-look="fridge"] .shop-list li { padding-right: 18px; }
+[data-look="fridge"] .keep-tip { font-size: 12px; }
+
+/* ---- Buttons ---- */
+[data-look="fridge"] .btn-primary {
+  background: var(--primary); border-radius: 999px; font-family: var(--round); font-weight: 600; font-size: 15px;
+  box-shadow: 0 3px 0 var(--primary-dark);
+}
+[data-look="fridge"] .btn-primary:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--primary-dark); }
+[data-look="fridge"] .btn-secondary,
+[data-look="fridge"] .btn-danger,
+[data-look="fridge"] .btn-danger-outline { border-radius: 999px; font-family: var(--round); font-weight: 600; font-size: 15px; }
+[data-look="fridge"] .btn-secondary { background: var(--paper); }
+
+/* ---- My meals: recipe index cards ---- */
+[data-look="fridge"] .meal-card {
+  position: relative; background: var(--paper); border: none; border-radius: 5px; box-shadow: var(--shadow);
+  padding: 16px 14px 14px; margin-bottom: 12px; border-top: 6px solid var(--card-stripe, var(--accent));
+}
+[data-look="fridge"] .meal-card:nth-child(7n+1) { --card-stripe: #C9503B; }
+[data-look="fridge"] .meal-card:nth-child(7n+2) { --card-stripe: #C4791A; }
+[data-look="fridge"] .meal-card:nth-child(7n+3) { --card-stripe: #6E8B1F; }
+[data-look="fridge"] .meal-card:nth-child(7n+4) { --card-stripe: #2F8F7A; }
+[data-look="fridge"] .meal-card:nth-child(7n+5) { --card-stripe: #3A72B8; }
+[data-look="fridge"] .meal-card:nth-child(7n+6) { --card-stripe: #7B5AC4; }
+[data-look="fridge"] .meal-card:nth-child(7n+7) { --card-stripe: #C34C82; }
+[data-look="fridge"] .meal-name { font-family: var(--round); font-weight: 600; font-size: 17px; }
+[data-look="fridge"] .meal-ing {
+  font-family: var(--hand); font-size: 19px; font-weight: 600; line-height: 26px; color: var(--muted);
+  background: repeating-linear-gradient(to bottom, transparent 0 25px, var(--paper-line) 25px 26px);
+}
+[data-look="fridge"] .icon-btn { border-radius: 50%; }
+[data-look="fridge"] .icon-btn.fav-btn.active { color: #E0A21B; }
+[data-look="fridge"] .meal-recipe-link { color: var(--accent); }
+[data-look="fridge"] .add-meal-btn {
+  border-radius: 6px; font-family: var(--hand); font-size: 22px; font-weight: 700; padding: 12px;
+  border-color: var(--border2); color: var(--muted);
+}
+
+/* ---- Modals: a sheet of paper sliding up ---- */
+[data-look="fridge"] .modal {
+  background: var(--paper); border-radius: 18px 18px 0 0; position: relative; padding-top: 28px;
+  animation: fridgeSheet 0.28s cubic-bezier(.2,.9,.3,1);
+}
+[data-look="fridge"] .modal::before {
+  content: ""; position: absolute; top: 10px; left: 50%; width: 40px; height: 5px; margin-left: -20px;
+  border-radius: 3px; background: var(--border2);
+}
+@keyframes fridgeSheet { from { transform: translateY(40px); opacity: 0.6; } to { transform: none; opacity: 1; } }
+[data-look="fridge"] .modal h2 { font-size: 22px; font-weight: 600; }
+[data-look="fridge"] .field-input,
+[data-look="fridge"] .field-textarea,
+[data-look="fridge"] .field-select { border-radius: 10px; background: var(--input-bg); }
+[data-look="fridge"] .field-input:focus,
+[data-look="fridge"] .field-textarea:focus,
+[data-look="fridge"] .field-select:focus { border-color: var(--primary); }
+[data-look="fridge"] .lock-row { background: var(--bg); border: none; }
+[data-look="fridge"] .lock-row input[type="checkbox"] { accent-color: var(--accent); }
+
+/* ---- Settings ---- */
+[data-look="fridge"] .settings-heading { font-family: var(--round); font-weight: 600; font-size: 17px; }
+[data-look="fridge"] .toggle-row,
+[data-look="fridge"] .sound-option,
+[data-look="fridge"] .look-option { background: var(--paper); border-color: transparent; box-shadow: var(--shadow); }
+[data-look="fridge"] .switch:checked { background: var(--primary); }
+[data-look="fridge"] .sound-option.active,
+[data-look="fridge"] .look-option.active { border-color: var(--primary); box-shadow: var(--shadow), 0 0 0 2px var(--primary) inset; }
+[data-look="fridge"] .sound-option.active .sound-radio { border-color: var(--primary); background: radial-gradient(circle, var(--primary) 42%, transparent 46%); }
+[data-look="fridge"] .look-name { font-family: var(--round); font-weight: 600; }
+[data-look="fridge"] .chip { background: var(--paper); border-color: var(--border2); border-radius: 999px; }
+[data-look="fridge"] .danger-zone { border-top-color: var(--border2); }
+
+/* ---- Bottom nav: a magnetic strip ---- */
+[data-look="fridge"] .bottom-nav {
+  background: var(--paper); border-top: none; box-shadow: 0 -6px 18px -8px rgba(60, 40, 20, 0.3);
+  border-radius: 18px 18px 0 0;
+}
+[data-look="fridge"] .nav-btn { font-family: var(--round); font-weight: 500; font-size: 11.5px; color: var(--muted2); position: relative; }
+[data-look="fridge"] .nav-btn.active { color: var(--accent); }
+[data-look="fridge"] .nav-btn.active::before {
+  content: ""; position: absolute; top: -4px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+}
+
+/* ---- Misc ---- */
+[data-look="fridge"] .toast { background: var(--text); color: var(--bg); border-radius: 999px; font-family: var(--round); font-weight: 500; }
+[data-look="fridge"] .loading-spinner { border-top-color: var(--accent); }
+[data-look="fridge"] .empty-state { font-family: var(--hand); font-size: 22px; font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-look="fridge"] .day-row.pop-in,
+  [data-look="fridge"] .day-row.landed,
+  [data-look="fridge"] .modal { animation: none; }
+}

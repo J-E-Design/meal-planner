@@ -60,6 +60,64 @@ const SOUND_OPTIONS = [
 ];
 const DEFAULT_SETTINGS = { sound: "nom.mp3", muted: false, confetti: true, darkMode: false, excludedCategories: [] };
 
+// ---- Looks (per-device, stored in localStorage so each phone can differ) ----
+const LOOKS = [
+  { id: "classic", label: "Classic", desc: "The original", swatch: ["#FFF6EA", "#F5B942", "#E85D3D", "#5B7F4B"], themeColor: "#E85D3D", available: true, shuffle: "classic" },
+  { id: "fridge", label: "Fridge door", desc: "Paper notes & magnets", swatch: ["#EFE8DC", "#FFFDF7", "#D94F30", "#2F7D6B"], themeColor: "#EFE8DC", themeColorDark: "#1F1C19", available: true, shuffle: "reel" },
+  { id: "chalk", label: "Café chalkboard", desc: "This week's menu", swatch: ["#232A26", "#F4F1E8", "#E9B949", "#D9725B"], available: false },
+  { id: "calm", label: "Calm modern", desc: "Big, bold & clean", swatch: ["#F7F7F5", "#111111", "#FF5A36", "#E8E8E4"], available: false },
+];
+const LOOK_KEY = "mp_look";
+function currentLook() {
+  const id = document.documentElement.dataset.look;
+  return LOOKS.find(l => l.id === id && l.available) || LOOKS[0];
+}
+function setLook(id) {
+  const look = LOOKS.find(l => l.id === id && l.available) || LOOKS[0];
+  document.documentElement.dataset.look = look.id;
+  try { localStorage.setItem(LOOK_KEY, look.id); } catch (e) {}
+  applyThemeColor();
+  renderWeek();
+  renderLookOptions();
+}
+function applyThemeColor() {
+  const look = currentLook();
+  const color = (settings.darkMode && look.themeColorDark) || look.themeColor;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta && color) meta.setAttribute("content", color);
+}
+function prefersReducedMotion() {
+  return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+// Slot-machine reel: each day flicks through random meals, then lands, one after another.
+function reelDays(indices) {
+  const names = meals.map(m => m.name);
+  if (names.length < 2 || prefersReducedMotion()) return;
+  indices.forEach((i, n) => {
+    const row = document.getElementById("day-" + i);
+    const el = row && row.querySelector(".day-meal");
+    if (!el) return;
+    const finalHtml = el.innerHTML;
+    const stopAt = performance.now() + 420 + n * 150;
+    row.classList.add("reeling");
+    const tick = () => {
+      if (!el.isConnected) return; // re-rendered mid-spin
+      if (performance.now() >= stopAt) {
+        el.innerHTML = finalHtml;
+        row.classList.remove("reeling");
+        row.classList.add("landed");
+        setTimeout(() => row.classList.remove("landed"), 450);
+        return;
+      }
+      const name = names[Math.floor(Math.random() * names.length)];
+      el.textContent = getMealEmoji(name) + " " + name;
+      setTimeout(tick, 65);
+    };
+    tick();
+  });
+}
+
 // TheMealDB's stable category list (from /list.php?c=list)
 const MEAL_CATEGORIES = ["Beef", "Breakfast", "Chicken", "Dessert", "Goat", "Lamb", "Miscellaneous", "Pasta", "Pork", "Seafood", "Side", "Starter", "Vegan", "Vegetarian"];
 
@@ -233,6 +291,7 @@ function showLoadError() { setBodyState("state-error"); }
 function applySettings() {
   document.body.classList.toggle("dark-mode", !!settings.darkMode);
   updateNomAudioSrc();
+  applyThemeColor();
 }
 
 async function init() {
@@ -322,15 +381,18 @@ function renderWeek() {
   document.getElementById("shuffleLabel").textContent = hasPlan ? "Shuffle again" : "Plan my week";
   document.getElementById("shuffleBtn").disabled = meals.length === 0;
 
+  const todayIndex = new Date().getDay();
   DAYS.forEach((day, i) => {
     const d = week[i];
     const row = document.createElement("div");
-    row.className = "day-row pop-in" + (d && d.locked ? " locked" : "");
+    row.className = "day-row pop-in" + (d && d.locked ? " locked" : "") + (d && d.eatingOut ? " eating-out" : "") + (i === todayIndex ? " today" : "");
     row.style.animationDelay = (i * 0.05) + "s";
     row.id = "day-" + i;
     const col = DAY_COLORS[i];
+    row.style.setProperty("--day-bg", col.bg);
+    row.style.setProperty("--day-fg", col.fg);
     row.innerHTML = `
-      <div class="day-badge" style="background:${col.bg}; color:${col.fg};">${day}</div>
+      <div class="day-badge">${day}</div>
       <button class="day-meal-btn" data-open="${i}">
         <div class="day-meal ${d ? "" : "empty"}">${d ? getMealEmoji(d.text) + " " + escapeHtml(d.text) : "🎲 Not decided yet"}</div>
         ${d && d.eatingOut ? `<div class="lock-tag eating-out-tag">🥡 Eating out</div>` : (d && d.locked ? `<div class="lock-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a5 5 0 00-5 5v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1V7a5 5 0 00-5-5zm-3 8V7a3 3 0 016 0v3z"/></svg>Locked</div>` : "")}
@@ -357,8 +419,39 @@ function renderWeek() {
     btn.addEventListener("click", (e) => { e.stopPropagation(); toggleLock(parseInt(btn.dataset.lock)); });
   });
 
+  renderTonight();
   renderShoppingList();
 }
+
+const FULL_DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+function renderTonight() {
+  const card = document.getElementById("tonightCard");
+  const i = new Date().getDay();
+  const d = week[i];
+  const next = week[(i + 1) % 7];
+  const meal = d && !d.eatingOut ? mealByName(d.text) : null;
+  const ingCount = meal ? (meal.ingredients || []).length : 0;
+  let main, sub;
+  if (!d) {
+    main = `<span class="tonight-emoji">🎲</span><span class="tonight-meal empty">Nothing planned yet</span>`;
+    sub = "Tap to pick something";
+  } else if (d.eatingOut) {
+    main = `<span class="tonight-emoji">🥡</span><span class="tonight-meal">${escapeHtml(d.text)}</span>`;
+    sub = "Night off — no cooking!";
+  } else {
+    main = `<span class="tonight-emoji">${getMealEmoji(d.text)}</span><span class="tonight-meal">${escapeHtml(d.text)}</span>`;
+    sub = ingCount ? `${ingCount} ingredient${ingCount === 1 ? "" : "s"}` : "";
+  }
+  card.innerHTML = `
+    <span class="tonight-magnet" aria-hidden="true"></span>
+    <span class="tonight-label">Tonight · ${FULL_DAYS[i]}</span>
+    <span class="tonight-main">${main}</span>
+    ${sub ? `<span class="tonight-sub">${sub}</span>` : ""}
+    <span class="tonight-next">Tomorrow: ${next ? getMealEmoji(next.text) + " " + escapeHtml(next.text) : "not decided yet"}</span>
+  `;
+  card.setAttribute("aria-label", `Tonight: ${d ? d.text : "nothing planned"}. Tap to edit.`);
+}
+document.getElementById("tonightCard").addEventListener("click", () => openDayModal(new Date().getDay()));
 
 function toggleLock(i) {
   if (!week[i]) return; // nothing to lock
@@ -374,10 +467,14 @@ function shuffleAll() {
   btn.classList.add("pop", "spin");
   playNomSound();
   setTimeout(() => {
+    const before = week;
     week = pickWeek();
     saveWeek(week);
     saveHistory([week.filter(d => d && !d.eatingOut).map(d => d.text), ...history].slice(0, 2));
     renderWeek();
+    if (currentLook().shuffle === "reel") {
+      reelDays(week.map((d, i) => (d && !(before[i] && (before[i].locked || before[i].eatingOut))) ? i : -1).filter(i => i >= 0));
+    }
     btn.classList.remove("pop", "spin");
     if (settings.confetti !== false) spawnConfetti(btn);
     document.getElementById("pageSubtitle").textContent = FUN_MESSAGES[Math.floor(Math.random() * FUN_MESSAGES.length)];
@@ -395,6 +492,7 @@ function rerollDay(i) {
   week[i] = { text: next.name, locked: false };
   saveWeek(week);
   renderWeek();
+  if (currentLook().shuffle === "reel") { reelDays([i]); return; }
   const row = document.getElementById("day-" + i);
   if (row) {
     row.classList.add("wiggle");
@@ -808,7 +906,24 @@ function renderCategoryChips() {
   });
 }
 
+function renderLookOptions() {
+  const container = document.getElementById("lookOptions");
+  const active = currentLook().id;
+  container.innerHTML = LOOKS.map(l => `
+    <button class="look-option ${l.id === active ? "active" : ""}" data-look-id="${l.id}" ${l.available ? "" : "disabled"} aria-pressed="${l.id === active}">
+      <span class="look-swatch">${l.swatch.map(c => `<span style="background:${c}"></span>`).join("")}</span>
+      <span class="look-name">${escapeHtml(l.label)}</span>
+      <span class="look-desc">${escapeHtml(l.desc)}</span>
+      ${l.available ? "" : `<span class="look-soon">Coming soon</span>`}
+    </button>
+  `).join("");
+  container.querySelectorAll("[data-look-id]:not([disabled])").forEach(btn => {
+    btn.addEventListener("click", () => setLook(btn.dataset.lookId));
+  });
+}
+
 function renderSettingsView() {
+  renderLookOptions();
   document.getElementById("muteToggle").checked = !!settings.muted;
   document.getElementById("confettiToggle").checked = settings.confetti !== false;
   document.getElementById("darkModeToggle").checked = !!settings.darkMode;
