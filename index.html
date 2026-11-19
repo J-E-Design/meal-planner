@@ -61,10 +61,18 @@
   <div class="view" id="shopView">
     <div class="shop-card">
       <p class="hint">Ingredients for everything planned this week.</p>
+      <form class="shop-add" id="shopAddForm" autocomplete="off">
+        <input class="shop-add-input" id="shopAddInput" list="shopPastItems" maxlength="80" enterkeyhint="done"
+               placeholder="Add something else — milk, bin bags…" aria-label="Add an item to the shopping list">
+        <button type="submit" class="shop-add-btn" aria-label="Add to list">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <datalist id="shopPastItems"></datalist>
+      </form>
       <p class="shop-progress" id="shopProgress" aria-live="polite"></p>
       <ul class="shop-list" id="shopList"></ul>
       <div class="shop-actions">
-        <button class="btn-secondary" id="clearTicksBtn" hidden>Untick all</button>
+        <button class="btn-secondary" id="clearTicksBtn" hidden>✓ Finish shop</button>
       </div>
     </div>
   </div>

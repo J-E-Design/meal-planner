@@ -325,3 +325,10 @@
 [data-look="chalk"] .meals-search { background: transparent; border-color: var(--rule-strong); border-radius: 2px; }
 [data-look="chalk"] .meals-search input { font-family: var(--item); font-weight: 500; font-size: 17px; }
 [data-look="chalk"] .meals-search-close { background: transparent; border-radius: 0; }
+
+/* ---- Add your own items / undo ---- */
+[data-look="chalk"] .shop-add-input { background: transparent; border-color: var(--rule-strong); border-radius: 2px; font-family: var(--item); font-weight: 500; font-size: 17px; }
+[data-look="chalk"] .shop-add-btn { background: var(--ink); color: var(--on-ink); border-radius: 2px; }
+[data-look="chalk"] .shop-list li.shop-item .shop-item-text { flex: 1; }
+[data-look="chalk"] .toast-action { color: var(--accent); font-family: var(--label); }
+[data-look="chalk"] body:not(.dark-mode) .toast-action { color: #F0C75E; }

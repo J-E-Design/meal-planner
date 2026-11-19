@@ -269,13 +269,30 @@ let editingMealId = null;
 let editingDayIndex = null;
 
 let toastTimer = null;
-function showToast(message) {
+// showToast("Deleted Tacos", { undo: () => ... }) adds an Undo button and stays up a little longer.
+function showToast(message, opts = {}) {
   const el = document.getElementById("toast");
   if (!el) return;
-  el.textContent = message;
+  el.innerHTML = "";
+  const text = document.createElement("span");
+  text.textContent = message;
+  el.appendChild(text);
+  el.classList.toggle("has-action", !!opts.undo);
+  if (opts.undo) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "toast-action";
+    btn.textContent = "Undo";
+    btn.addEventListener("click", () => {
+      el.classList.remove("show");
+      clearTimeout(toastTimer);
+      opts.undo();
+    }, { once: true });
+    el.appendChild(btn);
+  }
   el.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 3000);
+  toastTimer = setTimeout(() => el.classList.remove("show"), opts.undo ? 6000 : 3000);
 }
 
 function showConfirm(message, opts = {}) {
@@ -355,8 +372,8 @@ async function init() {
   }
   applySettings();
   showApp();
-  // Ticks are optional extra data - never let them stop the app loading.
-  stateGet("ticks", []).then(t => { ticks = Array.isArray(t) ? t : []; renderShoppingList(); }).catch(() => {});
+  // Shopping ticks/extras are optional extra data - never let them stop the app loading.
+  if (shopQueue.length) flushShopQueue(); else refreshShop();
   renderWeek();
   renderMeals();
   renderSettingsView();
@@ -497,12 +514,12 @@ function enableDayDrag(row, i) {
     handle.addEventListener("pointercancel", onEnd);
   });
 }
-function swapDays(a, b) {
+function swapDays(a, b, isUndo = false) {
   [week[a], week[b]] = [week[b], week[a]];
   saveWeek(week);
   renderWeek();
   if (currentLook().shuffle !== "classic") animateDays([a, b]);
-  showToast(`Swapped ${FULL_DAYS[a]} and ${FULL_DAYS[b]}`);
+  if (!isUndo) showToast(`Swapped ${FULL_DAYS[a]} and ${FULL_DAYS[b]}`, { undo: () => swapDays(a, b, true) });
 }
 
 const FULL_DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -550,10 +567,21 @@ function shuffleAll() {
   playNomSound();
   setTimeout(() => {
     const before = week;
+    const beforeHistory = history;
+    const beforeTicks = shopView().ticks;
     week = pickWeek();
     saveWeek(week);
-    clearTicks(); // new week, new shop
+    clearShopTicks(); // new week, new shop
     saveHistory([week.filter(d => d && !d.eatingOut).map(d => d.text), ...history].slice(0, 2));
+    showToast("New week planned", {
+      undo: () => {
+        week = before;
+        saveWeek(week);
+        saveHistory(beforeHistory);
+        if (beforeTicks.length) queueShopOp({ type: "setTicks", keys: beforeTicks });
+        renderWeek();
+      },
+    });
     renderWeek();
     animateDays(week.map((d, i) => (d && !(before[i] && (before[i].locked || before[i].eatingOut))) ? i : -1).filter(i => i >= 0));
     btn.classList.remove("pop", "spin");
@@ -581,16 +609,21 @@ function rerollDay(i) {
   }
 }
 
-async function resetWeek() {
-  const ok = await showConfirm("Locked and eating-out days will stay put.", {
-    title: "Clear this week's plan?",
-    confirmLabel: "Clear week",
-  });
-  if (!ok) return;
+function resetWeek() {
+  const before = week;
+  const beforeTicks = shopView().ticks;
   week = week.map(d => d && (d.locked || d.eatingOut) ? d : null);
   saveWeek(week);
-  clearTicks();
+  clearShopTicks();
   renderWeek();
+  showToast("Week cleared (locked days kept)", {
+    undo: () => {
+      week = before;
+      saveWeek(week);
+      if (beforeTicks.length) queueShopOp({ type: "setTicks", keys: beforeTicks });
+      renderWeek();
+    },
+  });
 }
 document.getElementById("resetWeekBtn").addEventListener("click", resetWeek);
 
@@ -620,7 +653,7 @@ function aisleFor(text) {
   return "other";
 }
 
-function buildShoppingList() {
+function buildShoppingList(view = shopView()) {
   const seen = new Map();
   week.forEach(d => {
     if (!d || d.eatingOut) return;
@@ -632,9 +665,14 @@ function buildShoppingList() {
       if (seen.has(key)) {
         seen.get(key).count++;
       } else {
-        seen.set(key, { key, text: ing.trim(), count: 1, aisle: aisleFor(ing) });
+        seen.set(key, { key, text: ing.trim(), count: 1, aisle: aisleFor(ing), fromMeal: true });
       }
     });
+  });
+  // Things you've added yourself (milk, bin bags...)
+  view.extras.items.forEach(x => {
+    if (seen.has(x.key)) seen.get(x.key).extra = true;
+    else seen.set(x.key, { key: x.key, text: x.text, count: 1, aisle: aisleFor(x.text), extra: true });
   });
   const order = AISLES.map(a => a.id);
   return [...seen.values()].sort((a, b) => order.indexOf(a.aisle) - order.indexOf(b.aisle));
@@ -644,98 +682,208 @@ function formatShoppingItem(item) {
   return item.text + (item.count > 1 ? ` ×${item.count}` : "");
 }
 
+let lastShopHtml = "";
 function renderShoppingList() {
-  const items = buildShoppingList();
+  const view = shopView();
+  const items = buildShoppingList(view);
   const ul = document.getElementById("shopList");
   const progress = document.getElementById("shopProgress");
-  const clearBtn = document.getElementById("clearTicksBtn");
+  const finishBtn = document.getElementById("clearTicksBtn");
+  const syncNote = shopOffline && shopQueue.length ? " · 📶 No signal — saved on this phone, will sync" : "";
+
+  // Suggestions for the add box: things you've added before that aren't on the list now
+  const onList = new Set(items.map(i => i.key));
+  document.getElementById("shopPastItems").innerHTML = view.extras.past
+    .filter(p => !onList.has(p.toLowerCase())).slice(0, 60)
+    .map(p => `<option value="${escapeHtml(p)}"></option>`).join("");
+
   if (items.length === 0) {
-    ul.innerHTML = `<li class="shop-empty">Plan your week to build a shopping list.</li>`;
-    progress.textContent = "";
-    clearBtn.hidden = true;
+    ul.innerHTML = `<li class="shop-empty">Plan your week, or add something above.</li>`;
+    lastShopHtml = "";
+    progress.textContent = syncNote.replace(/^ · /, "");
+    finishBtn.hidden = true;
     return;
   }
-  const tickSet = new Set(ticks);
+  const tickSet = new Set(view.ticks);
   const done = items.filter(i => tickSet.has(i.key)).length;
-  ul.innerHTML = AISLES.map(a => {
+  const html = AISLES.map(a => {
     const group = items.filter(i => i.aisle === a.id);
     if (!group.length) return "";
     return `<li class="shop-aisle" role="presentation"><span class="shop-aisle-emoji" aria-hidden="true">${a.emoji}</span>${escapeHtml(a.label)}</li>` +
       group.map(i => {
         const on = tickSet.has(i.key);
-        return `<li class="shop-item${on ? " ticked" : ""}" role="checkbox" tabindex="0" aria-checked="${on}" data-tick="${escapeHtml(i.key)}">${escapeHtml(formatShoppingItem(i))}</li>`;
+        const removable = i.extra && !i.fromMeal;
+        return `<li class="shop-item${on ? " ticked" : ""}${i.extra ? " extra" : ""}" role="checkbox" tabindex="0" aria-checked="${on}" data-tick="${escapeHtml(i.key)}">` +
+          `<span class="shop-item-text">${escapeHtml(formatShoppingItem(i))}</span>` +
+          (removable ? `<button type="button" class="shop-remove" data-remove="${escapeHtml(i.key)}" aria-label="Remove ${escapeHtml(i.text)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>` : "") +
+          `</li>`;
       }).join("");
   }).join("");
-  progress.textContent = done === 0 ? "Tap an item to tick it off — you'll both see it."
+  if (html !== lastShopHtml) { ul.innerHTML = html; lastShopHtml = html; } // avoid flicker on background refreshes
+  progress.textContent = (done === 0 ? "Tap an item to tick it off — you'll both see it."
     : done === items.length ? "All done — everything's in the trolley! 🎉"
-    : `${done} of ${items.length} in the trolley`;
-  clearBtn.hidden = done === 0;
+    : `${done} of ${items.length} in the trolley`) + syncNote;
+  finishBtn.hidden = done === 0;
 }
 
-// ---- Shopping ticks: shared between phones ----
-let ticks = [];
-let tickChain = Promise.resolve();
-let tickWritesPending = 0;
-let tickPoll = null;
+// ---- Shopping: ticks + your own items, shared between phones and safe with no signal ----
+// Server data: "ticks" = [item keys]; "extras" = { items: [{key, text}], past: [text, ...] }.
+// Every change is queued on this phone first (so it survives no signal and app restarts),
+// then replayed on top of the latest server copy - two people ticking at once never clash.
+const SHOP_QUEUE_KEY = "mp_shop_queue";
+let serverTicks = [];
+let serverExtras = { items: [], past: [] };
+let shopQueue = loadShopQueue();
+let shopOffline = false;
+let shopFlushing = false;
+let shopPoll = null;
 
-function toggleTick(key) {
-  const nowOn = !ticks.includes(key);
-  ticks = nowOn ? [...ticks, key] : ticks.filter(k => k !== key);
-  renderShoppingList();
-  tickWritesPending++;
-  // Read-modify-write against the server so two people ticking at once don't wipe each other out.
-  tickChain = tickChain.then(async () => {
-    try {
-      const latest = await stateGet("ticks", []);
-      const set = new Set(Array.isArray(latest) ? latest : []);
-      if (nowOn) set.add(key); else set.delete(key);
-      await stateSet("ticks", [...set]);
-      if (tickWritesPending === 1) { ticks = [...set]; renderShoppingList(); }
-    } catch (e) {
-      showToast("Couldn't sync that tick — check your connection.");
-    } finally {
-      tickWritesPending--;
-    }
-  });
+function loadShopQueue() {
+  try { const q = JSON.parse(localStorage.getItem(SHOP_QUEUE_KEY) || "[]"); return Array.isArray(q) ? q : []; }
+  catch (e) { return []; }
 }
-async function clearTicks() {
-  ticks = [];
-  renderShoppingList();
-  tickChain = tickChain.then(() => stateSet("ticks", []).catch(() => {}));
+function persistShopQueue() {
+  try { localStorage.setItem(SHOP_QUEUE_KEY, JSON.stringify(shopQueue)); } catch (e) {}
 }
-async function refreshTicks() {
-  if (document.hidden || tickWritesPending > 0) return;
+function normaliseExtras(v) {
+  return {
+    items: Array.isArray(v && v.items) ? v.items.filter(i => i && i.key && i.text) : [],
+    past: Array.isArray(v && v.past) ? v.past.filter(p => typeof p === "string") : [],
+  };
+}
+function applyShopOp(state, op) {
+  const ticks = new Set(state.ticks);
+  let items = state.extras.items;
+  let past = state.extras.past;
+  switch (op.type) {
+    case "tick": if (op.on) ticks.add(op.key); else ticks.delete(op.key); break;
+    case "setTicks": ticks.clear(); op.keys.forEach(k => ticks.add(k)); break;
+    case "addExtra":
+      if (!items.some(i => i.key === op.key)) items = [...items, { key: op.key, text: op.text }];
+      past = [op.text, ...past.filter(p => p.toLowerCase() !== op.key)].slice(0, 150);
+      break;
+    case "removeExtra": items = items.filter(i => i.key !== op.key); ticks.delete(op.key); break;
+    case "setExtras": items = op.items; break;
+    case "finishShop": items = items.filter(i => !ticks.has(i.key)); ticks.clear(); break;
+  }
+  return { ticks: [...ticks], extras: { items, past } };
+}
+function shopView() {
+  return shopQueue.reduce(applyShopOp, { ticks: serverTicks, extras: serverExtras });
+}
+function queueShopOp(op) {
+  shopQueue.push(op);
+  persistShopQueue();
+  renderShoppingList();
+  flushShopQueue();
+}
+async function flushShopQueue() {
+  if (shopFlushing || shopQueue.length === 0) return;
+  shopFlushing = true;
+  const batch = shopQueue.slice();
   try {
-    const latest = await stateGet("ticks", []);
-    if (tickWritesPending > 0) return;
-    const next = Array.isArray(latest) ? latest : [];
-    if (JSON.stringify(next) !== JSON.stringify(ticks)) {
-      ticks = next;
-      renderShoppingList();
-    }
-  } catch (e) { /* offline - keep what we have */ }
+    const [t, x] = await Promise.all([stateGet("ticks", []), stateGet("extras", null)]);
+    const base = { ticks: Array.isArray(t) ? t : [], extras: normaliseExtras(x) };
+    const next = batch.reduce(applyShopOp, base);
+    const writes = [];
+    if (JSON.stringify(next.ticks) !== JSON.stringify(base.ticks)) writes.push(stateSet("ticks", next.ticks));
+    if (JSON.stringify(next.extras) !== JSON.stringify(base.extras)) writes.push(stateSet("extras", next.extras));
+    await Promise.all(writes);
+    serverTicks = next.ticks;
+    serverExtras = next.extras;
+    shopQueue = shopQueue.slice(batch.length);
+    persistShopQueue();
+    shopOffline = false;
+  } catch (e) {
+    shopOffline = true;
+  } finally {
+    shopFlushing = false;
+    renderShoppingList();
+    if (!shopOffline && shopQueue.length) flushShopQueue();
+  }
+}
+async function refreshShop() {
+  if (document.hidden) return;
+  if (shopQueue.length) { flushShopQueue(); return; }
+  try {
+    const [t, x] = await Promise.all([stateGet("ticks", []), stateGet("extras", null)]);
+    if (shopQueue.length) return; // a change was made while we were fetching - the flush will catch up
+    serverTicks = Array.isArray(t) ? t : [];
+    serverExtras = normaliseExtras(x);
+    shopOffline = false;
+  } catch (e) {
+    shopOffline = true;
+  }
+  renderShoppingList();
 }
 function startTickPolling() {
   stopTickPolling();
-  refreshTicks();
-  tickPoll = setInterval(refreshTicks, 5000);
+  refreshShop();
+  shopPoll = setInterval(refreshShop, 5000);
 }
 function stopTickPolling() {
-  if (tickPoll) clearInterval(tickPoll);
-  tickPoll = null;
+  if (shopPoll) clearInterval(shopPoll);
+  shopPoll = null;
 }
+// Keep retrying queued changes in the background until they reach the server.
+setInterval(() => { if (shopQueue.length) flushShopQueue(); }, 15000);
+window.addEventListener("online", () => flushShopQueue());
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && tickPoll) refreshTicks();
+  if (!document.hidden) { if (shopPoll) refreshShop(); else flushShopQueue(); }
 });
+
+function toggleTick(key) {
+  const on = !shopView().ticks.includes(key);
+  queueShopOp({ type: "tick", key, on });
+}
+function clearShopTicks() {
+  if (shopView().ticks.length) queueShopOp({ type: "setTicks", keys: [] });
+}
+function finishShop() {
+  const before = shopView();
+  const removed = before.extras.items.filter(i => before.ticks.includes(i.key)).length;
+  queueShopOp({ type: "finishShop" });
+  showToast(removed ? `Shop done — ${removed} added item${removed === 1 ? "" : "s"} cleared` : "Shop done — all unticked", {
+    undo: () => {
+      queueShopOp({ type: "setExtras", items: before.extras.items });
+      queueShopOp({ type: "setTicks", keys: before.ticks });
+    },
+  });
+}
 document.getElementById("shopList").addEventListener("click", (e) => {
+  const rm = e.target.closest("[data-remove]");
+  if (rm) {
+    e.stopPropagation();
+    const item = shopView().extras.items.find(i => i.key === rm.dataset.remove);
+    queueShopOp({ type: "removeExtra", key: rm.dataset.remove });
+    if (item) showToast(`Removed ${item.text}`, { undo: () => queueShopOp({ type: "addExtra", key: item.key, text: item.text }) });
+    return;
+  }
   const li = e.target.closest("[data-tick]");
   if (li) toggleTick(li.dataset.tick);
 });
 document.getElementById("shopList").addEventListener("keydown", (e) => {
+  if (e.target.closest("[data-remove]")) return;
   const li = e.target.closest("[data-tick]");
   if (li && (e.key === " " || e.key === "Enter")) { e.preventDefault(); toggleTick(li.dataset.tick); }
 });
-document.getElementById("clearTicksBtn").addEventListener("click", clearTicks);
+document.getElementById("clearTicksBtn").addEventListener("click", finishShop);
+document.getElementById("shopAddForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const input = document.getElementById("shopAddInput");
+  const text = input.value.trim().replace(/\s+/g, " ");
+  if (!text) return;
+  const key = text.toLowerCase();
+  const existing = buildShoppingList().find(i => i.key === key);
+  if (existing) {
+    if (shopView().ticks.includes(key)) queueShopOp({ type: "tick", key, on: false });
+    showToast(`${existing.text} is already on the list`);
+  } else {
+    queueShopOp({ type: "addExtra", key, text });
+  }
+  input.value = "";
+  input.focus();
+});
 
 function escapeHtml(str) {
   const d = document.createElement("div");
@@ -783,10 +931,15 @@ document.getElementById("dayModalOverlay").addEventListener("click", (e) => {
 });
 document.getElementById("dayClearBtn").addEventListener("click", () => {
   if (editingDayIndex === null) return;
-  week[editingDayIndex] = null;
+  const i = editingDayIndex;
+  const before = week[i];
+  week[i] = null;
   saveWeek(week);
   closeDayModal();
   renderWeek();
+  if (before) {
+    showToast(`Cleared ${FULL_DAYS[i]}`, { undo: () => { week[i] = before; saveWeek(week); renderWeek(); } });
+  }
 });
 document.getElementById("daySaveBtn").addEventListener("click", () => {
   if (editingDayIndex === null) return;
@@ -868,6 +1021,8 @@ function toggleFavourite(id) {
 
 function deleteMeal(id) {
   const meal = mealById(id);
+  const beforeMeals = meals;
+  const beforeWeek = week;
   meals = meals.filter(m => m.id !== id);
   saveMeals(meals);
   if (meal) {
@@ -876,6 +1031,18 @@ function deleteMeal(id) {
   }
   renderMeals();
   renderWeek();
+  if (meal) {
+    showToast(`Deleted ${meal.name}`, {
+      undo: () => {
+        meals = beforeMeals;
+        saveMeals(meals);
+        week = beforeWeek;
+        saveWeek(week);
+        renderMeals();
+        renderWeek();
+      },
+    });
+  }
 }
 
 let editingMealSourceUrl = null;

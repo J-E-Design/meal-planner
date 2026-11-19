@@ -309,3 +309,10 @@
 [data-look="fridge"] .meals-search:focus-within { border-color: var(--primary); }
 [data-look="fridge"] .meals-search input { font-family: var(--round); font-weight: 500; }
 [data-look="fridge"] .meals-toolbar .more-btn { border-radius: 50%; }
+
+/* ---- Add your own items / undo ---- */
+[data-look="fridge"] .shop-add-input { border-color: var(--border); border-radius: 999px; background: var(--input-bg); font-family: var(--round); font-weight: 500; }
+[data-look="fridge"] .shop-add-input:focus { border-color: var(--primary); }
+[data-look="fridge"] .shop-add-btn { background: var(--primary); border-radius: 50%; box-shadow: 0 3px 0 var(--primary-dark); }
+[data-look="fridge"] .shop-list .shop-item { display: flex; align-items: center; }
+[data-look="fridge"] .toast-action { color: #FFB39C; font-family: var(--round); font-weight: 600; }

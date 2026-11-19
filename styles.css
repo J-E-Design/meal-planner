@@ -289,6 +289,35 @@
   .shop-item.ticked { text-decoration: line-through; color: var(--muted2); }
   .shop-list .shop-empty { list-style: none; margin-left: -18px; color: var(--muted2); font-weight: 600; }
 
+  /* Add your own items */
+  .shop-add { display: flex; gap: 8px; margin: 0 0 12px; }
+  .shop-add-input {
+    flex: 1; min-width: 0; border: 1.5px solid var(--border); background: var(--input-bg); color: var(--text);
+    border-radius: 12px; padding: 11px 13px; font-family: inherit; font-size: 16px; font-weight: 600; outline: none;
+  }
+  .shop-add-input:focus { border-color: var(--muted); }
+  .shop-add-input::placeholder { color: var(--muted2); }
+  .shop-add-btn {
+    flex: none; width: 46px; border: none; border-radius: 12px; background: #5B7F4B; color: #fff;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .shop-add-btn:active { transform: scale(0.95); }
+  .shop-item-text { flex: 1; min-width: 0; }
+  .shop-remove {
+    /* inline-flex so the ticked item's strike-through doesn't run through the button */
+    display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex-shrink: 0;
+    border: none; background: transparent; color: var(--muted2); cursor: pointer; padding: 0; margin-left: 6px;
+    vertical-align: middle; border-radius: 50%;
+  }
+  .shop-remove:active { background: var(--row-bg); }
+
+  /* Toast with an Undo button */
+  .toast.has-action { display: flex; align-items: center; gap: 14px; pointer-events: auto; text-align: left; }
+  .toast-action {
+    border: none; background: transparent; color: #FFC2A8; font-family: inherit; font-weight: 800; font-size: 13px;
+    padding: 4px 2px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0;
+  }
+
   /* My meals toolbar */
   .meals-toolbar { display: flex; gap: 8px; margin: 18px 0 6px; align-items: stretch; }
   .meals-toolbar .btn-primary { flex: 1.15; white-space: nowrap; }
