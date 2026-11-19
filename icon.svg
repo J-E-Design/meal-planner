@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="35%" cy="25%" r="85%">
+      <stop offset="0" stop-color="#FBB25A"/>
+      <stop offset="0.55" stop-color="#EE6E3A"/>
+      <stop offset="1" stop-color="#D94A2B"/>
+    </radialGradient>
+    <linearGradient id="bowl" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFBF3"/>
+      <stop offset="1" stop-color="#F3E3CC"/>
+    </linearGradient>
+    <radialGradient id="stew" cx="45%" cy="40%" r="70%">
+      <stop offset="0" stop-color="#B8532B"/>
+      <stop offset="1" stop-color="#7E2F15"/>
+    </radialGradient>
+  </defs>
+  <!-- full-bleed background so it works as a maskable icon -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- steam -->
+  <g fill="none" stroke="#FFF6EA" stroke-width="15" stroke-linecap="round" opacity="0.92">
+    <path d="M196 196c-18-22 18-34 0-58s18-36 0-58"/>
+    <path d="M256 186c-18-22 18-34 0-58s18-36 0-58"/>
+    <path d="M316 196c-18-22 18-34 0-58s18-36 0-58"/>
+  </g>
+  <!-- bowl shadow -->
+  <ellipse cx="256" cy="402" rx="132" ry="18" fill="#9E3216" opacity="0.35"/>
+  <!-- bowl body -->
+  <path d="M106 262h300c0 84-66 140-150 140S106 346 106 262z" fill="url(#bowl)"/>
+  <!-- stripe on the bowl -->
+  <path d="M120 304h272c-6 14-14 27-24 38H144c-10-11-18-24-24-38z" fill="#E85D3D"/>
+  <!-- rim + stew -->
+  <ellipse cx="256" cy="262" rx="150" ry="34" fill="#FFF6EA"/>
+  <ellipse cx="256" cy="262" rx="132" ry="24" fill="url(#stew)"/>
+  <!-- bits in the stew: carrot, peas, potato -->
+  <circle cx="206" cy="258" r="10" fill="#F39A3B"/>
+  <circle cx="300" cy="264" r="9" fill="#F39A3B"/>
+  <circle cx="248" cy="270" r="7" fill="#7FB04B"/>
+  <circle cx="272" cy="252" r="6" fill="#7FB04B"/>
+  <circle cx="330" cy="256" r="7" fill="#F6E2B3"/>
+  <circle cx="178" cy="266" r="6" fill="#F6E2B3"/>
+</svg>
