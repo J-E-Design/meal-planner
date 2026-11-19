@@ -804,16 +804,29 @@ document.getElementById("daySaveBtn").addEventListener("click", () => {
 });
 
 // ---- Meals view ----
+let mealSearch = "";
+function mealMatches(m, query) {
+  const haystack = (m.name + " " + (m.ingredients || []).join(" ")).toLowerCase();
+  return query.toLowerCase().split(/\s+/).filter(Boolean).every(word => haystack.includes(word));
+}
+
 function renderMeals() {
   const list = document.getElementById("mealsList");
   const favs = meals.filter(m => m.favourite).length;
+  const query = mealSearch.trim();
+  const shown = query ? meals.filter(m => mealMatches(m, query)) : meals;
   document.getElementById("mealsCount").textContent = meals.length === 0 ? ""
+    : query ? `${shown.length} of ${meals.length} meals match`
     : `${meals.length} meal${meals.length === 1 ? "" : "s"}` + (favs ? ` · ${favs} favourite${favs === 1 ? "" : "s"}` : "");
   if (meals.length === 0) {
     list.innerHTML = `<div class="empty-state">🍽️ No meals yet. Tap “Add a meal” to add your first favourite.</div>`;
     return;
   }
-  list.innerHTML = meals.map(m => `
+  if (shown.length === 0) {
+    list.innerHTML = `<div class="empty-state">No meals match “${escapeHtml(query)}”.</div>`;
+    return;
+  }
+  list.innerHTML = shown.map(m => `
     <div class="meal-card">
       <div class="meal-card-top">
         <div class="meal-name">${mealLabel(m.name)}</div>
@@ -912,6 +925,32 @@ document.getElementById("mealSaveBtn").addEventListener("click", () => {
   closeMealModal();
   renderMeals();
   renderWeek();
+});
+
+// ---- My meals search: the toolbar turns into a search bar in place ----
+const mealsToolbar = document.getElementById("mealsToolbar");
+const searchBox = document.getElementById("mealsSearch");
+const searchInput = document.getElementById("mealsSearchInput");
+const searchBtn = document.getElementById("mealsSearchBtn");
+function setMealSearch(open) {
+  mealsToolbar.classList.toggle("searching", open);
+  searchBox.hidden = !open;
+  searchBtn.setAttribute("aria-expanded", String(open));
+  if (open) {
+    searchInput.focus();
+  } else {
+    searchInput.value = "";
+    mealSearch = "";
+    renderMeals();
+    searchBtn.focus();
+  }
+}
+searchBtn.addEventListener("click", () => setMealSearch(true));
+document.getElementById("mealsSearchClose").addEventListener("click", () => setMealSearch(false));
+searchInput.addEventListener("input", () => { mealSearch = searchInput.value; renderMeals(); });
+searchInput.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") setMealSearch(false);
+  if (e.key === "Enter") searchInput.blur(); // close the phone keyboard
 });
 
 // ---- My meals "⋯" menu ----

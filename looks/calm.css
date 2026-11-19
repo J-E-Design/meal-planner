@@ -298,3 +298,6 @@
 [data-look="calm"] .menu-pop button { font-family: var(--ui); font-weight: 500; font-size: 15px; }
 [data-look="calm"] .meals-count { font-size: 13px; font-weight: 500; margin: 16px 4px 8px; }
 [data-look="calm"] #mealsList { margin-top: 0; }
+[data-look="calm"] .meals-search { background: var(--row-bg); border-color: transparent; border-radius: 14px; }
+[data-look="calm"] .meals-search:focus-within { border-color: var(--accent); background: var(--card-bg); }
+[data-look="calm"] .meals-search input { font-family: var(--ui); font-weight: 500; }

@@ -322,3 +322,6 @@
 [data-look="chalk"] .menu-pop { background: var(--bg); background-image: var(--texture); border: 1.5px solid var(--rule-strong); border-radius: 2px; }
 [data-look="chalk"] .menu-pop button { font-family: var(--label); font-weight: 700; font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; border-radius: 0; }
 [data-look="chalk"] .meals-count { font-family: var(--hand); font-weight: 400; font-size: 15px; text-align: center; margin: 12px 0 10px; }
+[data-look="chalk"] .meals-search { background: transparent; border-color: var(--rule-strong); border-radius: 2px; }
+[data-look="chalk"] .meals-search input { font-family: var(--item); font-weight: 500; font-size: 17px; }
+[data-look="chalk"] .meals-search-close { background: transparent; border-radius: 0; }
