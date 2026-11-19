@@ -219,8 +219,8 @@ function handleUnauthorised() {
   showLockScreen("That passcode has changed — please enter it again.");
 }
 
-async function stateGet(name, fallback) {
-  const res = await fetch(`${API_URL}?name=${encodeURIComponent(name)}`, { cache: "no-store", headers: authHeaders() });
+async function stateGet(name, fallback, extraQuery = "") {
+  const res = await fetch(`${API_URL}?name=${encodeURIComponent(name)}${extraQuery}`, { cache: "no-store", headers: authHeaders() });
   if (res.status === 401) { handleUnauthorised(); throw new Error("Passcode needed"); }
   if (!res.ok) throw new Error("GET " + name + " failed: " + res.status);
   const data = await res.json();
@@ -2207,6 +2207,107 @@ document.getElementById("statsOpenBtn").addEventListener("click", openStats);
 document.getElementById("statsCloseBtn").addEventListener("click", () => document.getElementById("statsOverlay").classList.remove("active"));
 document.getElementById("statsOverlay").addEventListener("click", (e) => { if (e.target.id === "statsOverlay") e.target.classList.remove("active"); });
 
+// ---- Full backups: everything (meals, plans, notes, ratings, shopping...) ----
+const BACKUP_NAMES = ["meals", "week", "settings", "history", "plan", "notes", "ratings", "swipes", "ticks", "extras", "activity"];
+async function collectEverything() {
+  const values = await Promise.all(BACKUP_NAMES.map(n => stateGet(n, null).catch(() => null)));
+  const data = {};
+  BACKUP_NAMES.forEach((n, i) => { if (values[i] !== null) data[n] = values[i]; });
+  return data;
+}
+function downloadJson(obj, filename) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function reloadApp() { location.reload(); }
+async function restoreEverything(data, label) {
+  const names = BACKUP_NAMES.filter(n => n in data);
+  if (!names.length || !Array.isArray(data.meals)) {
+    await showAlert("That doesn't look like a full backup from this app.");
+    return;
+  }
+  const ok = await showConfirm(
+    `This replaces everything — ${data.meals.length} meal${data.meals.length === 1 ? "" : "s"}, your planned weeks, notes, ratings and shopping list — with ${label}. Both phones will see the change.`,
+    { title: "Restore everything?", confirmLabel: "Restore" }
+  );
+  if (!ok) return;
+  try {
+    for (const n of names) await stateSet(n, data[n]);
+    try { localStorage.removeItem(SHOP_QUEUE_KEY); } catch (e) {}
+    showToast("Restored — reloading…");
+    setTimeout(() => reloadApp(), 900);
+  } catch (e) {
+    showAlert("Couldn't finish restoring — check your connection and try again.");
+  }
+}
+document.getElementById("fullBackupBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("fullBackupBtn");
+  btn.disabled = true;
+  try {
+    const data = await collectEverything();
+    downloadJson({ app: "whats-for-tea", version: 1, created: new Date().toISOString(), data }, `whats-for-tea-backup-${isoDate(new Date())}.json`);
+  } catch (e) {
+    showAlert("Couldn't make the backup — check your connection.");
+  } finally {
+    btn.disabled = false;
+  }
+});
+document.getElementById("fullRestoreBtn").addEventListener("click", () => document.getElementById("fullRestoreInput").click());
+document.getElementById("fullRestoreInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let parsed;
+    try { parsed = JSON.parse(reader.result); } catch (err) { showAlert("That file isn't a backup."); return; }
+    if (Array.isArray(parsed)) { showAlert("That's a meals-only backup — restore it from My meals → ⋯ → Restore."); return; }
+    restoreEverything(parsed && parsed.data ? parsed.data : {}, "this backup file");
+  };
+  reader.readAsText(file);
+});
+async function renderServerBackups() {
+  const sel = document.getElementById("serverBackupSelect");
+  const btn = document.getElementById("serverRestoreBtn");
+  const note = document.getElementById("serverBackupNote");
+  try {
+    const dates = await stateGet("_backups", []);
+    if (!Array.isArray(dates) || !dates.length) {
+      sel.innerHTML = `<option value="">None yet</option>`;
+      btn.disabled = true;
+      note.textContent = "The first automatic copy is made the next time the app opens.";
+      return;
+    }
+    sel.innerHTML = dates.map(d => {
+      const dt = new Date(d + "T12:00:00");
+      return `<option value="${d}">${FULL_DAYS[dt.getDay()].slice(0, 3)} ${dt.getDate()} ${SHORT_MONTHS[dt.getMonth()]}</option>`;
+    }).join("");
+    btn.disabled = false;
+    note.textContent = `${dates.length} daily cop${dates.length === 1 ? "y" : "ies"} on your server. Each is taken first thing that day.`;
+  } catch (e) {
+    sel.innerHTML = `<option value="">Unavailable</option>`;
+    btn.disabled = true;
+    note.textContent = "";
+  }
+}
+document.getElementById("serverRestoreBtn").addEventListener("click", async () => {
+  const date = document.getElementById("serverBackupSelect").value;
+  if (!date) return;
+  try {
+    const backup = await stateGet("_backup", null, "&date=" + encodeURIComponent(date));
+    const data = {};
+    for (const [n, row] of Object.entries((backup && backup.data) || {})) data[n] = row && "value" in row ? row.value : row;
+    const dt = new Date(date + "T12:00:00");
+    restoreEverything(data, `the copy from ${FULL_DAYS[dt.getDay()]} ${dt.getDate()} ${SHORT_MONTHS[dt.getMonth()]}`);
+  } catch (e) {
+    showAlert("Couldn't fetch that copy — check your connection.");
+  }
+});
+
 // ---- Calendar feed settings ----
 function renderCalendarSettings() {
   calendarToken().then(token => {
@@ -2230,6 +2331,7 @@ function renderSettingsView() {
   renderWho();
   renderCalendarSettings();
   renderAisleOrder();
+  renderServerBackups();
   renderLookOptions();
   document.getElementById("muteToggle").checked = !!settings.muted;
   document.getElementById("confettiToggle").checked = settings.confetti !== false;

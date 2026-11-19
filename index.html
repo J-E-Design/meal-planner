@@ -234,6 +234,21 @@
       </div>
       <p class="hint cal-help">iPhone: when subscribing, turn <strong>off</strong> “Remove Alerts” so the reminders come through. Google: reminders for subscribed calendars are set in Google Calendar's settings for “What's for tea?”, and changes can take a few hours to show.</p>
     </div>
+    <div class="settings-section">
+      <h2 class="settings-heading">💾 Backups</h2>
+      <p class="hint">Your server keeps an automatic copy of everything once a day (the last 30 days). You can also save a copy to your phone.</p>
+      <div class="cal-buttons">
+        <button type="button" class="btn-primary" id="fullBackupBtn">Download everything</button>
+        <button type="button" class="btn-secondary" id="fullRestoreBtn">Restore from a file</button>
+      </div>
+      <input type="file" id="fullRestoreInput" accept="application/json,.json" hidden>
+      <div class="toggle-row">
+        <label for="serverBackupSelect">Daily copy</label>
+        <select class="time-input" id="serverBackupSelect" aria-describedby="serverBackupNote"><option value="">Loading…</option></select>
+      </div>
+      <button type="button" class="btn-secondary backup-restore-day" id="serverRestoreBtn" disabled>Go back to this day</button>
+      <p class="hint cal-help" id="serverBackupNote"></p>
+    </div>
     <div class="settings-section danger-zone">
       <h2 class="settings-heading">⚠️ Danger zone</h2>
       <button class="btn-danger-outline" id="resetDataBtn" style="width:100%;">Reset all data</button>

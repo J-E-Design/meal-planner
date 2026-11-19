@@ -57,10 +57,56 @@ try {
     fail(503, 'Database connection failed');
 }
 
+// ---- Automatic daily backups ----
+// The first request each day writes a copy of every row to backups/YYYY-MM-DD.json
+// (folder is blocked from the web by its own .htaccess). The newest 30 are kept.
+$BACKUP_DIR = __DIR__ . '/backups';
+function ensure_backup_dir(string $dir): bool {
+    if (!is_dir($dir) && !@mkdir($dir, 0750, true)) return false;
+    $ht = "$dir/.htaccess";
+    if (!file_exists($ht)) @file_put_contents($ht, "Require all denied\nOptions -Indexes\n");
+    return is_writable($dir);
+}
+function list_backups(string $dir): array {
+    $files = glob("$dir/????-??-??.json") ?: [];
+    rsort($files);
+    return $files;
+}
+function daily_backup(PDO $pdo, string $dir): void {
+    $today = (new DateTime('now', new DateTimeZone('Europe/London')))->format('Y-m-d');
+    $file = "$dir/$today.json";
+    if (file_exists($file) || !ensure_backup_dir($dir)) return;
+    $out = [];
+    foreach ($pdo->query('SELECT name, value, updated_at FROM app_state') as $row) {
+        $out[$row['name']] = ['value' => json_decode($row['value'], true), 'updated_at' => $row['updated_at']];
+    }
+    $json = json_encode(['created' => date('c'), 'data' => $out], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $tmp = "$file.tmp";
+    if (@file_put_contents($tmp, $json, LOCK_EX) !== false) @rename($tmp, $file);
+    foreach (array_slice(list_backups($dir), 30) as $old) @unlink($old);
+}
+try { daily_backup($pdo, $BACKUP_DIR); } catch (Throwable $e) { /* never block the app over a backup */ }
+
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
     $name = $_GET['name'] ?? '';
+
+    // List automatic backups: GET ?name=_backups -> {"value": ["2026-11-19", ...]}
+    if ($name === '_backups') {
+        echo json_encode(['value' => array_map(fn($f) => basename($f, '.json'), list_backups($BACKUP_DIR))]);
+        exit;
+    }
+    // Fetch one: GET ?name=_backup&date=2026-11-19 -> {"value": {"created": ..., "data": {...}}}
+    if ($name === '_backup') {
+        $date = $_GET['date'] ?? '';
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) fail(400, 'Bad date');
+        $file = "$BACKUP_DIR/$date.json";
+        if (!is_file($file)) fail(404, 'No backup for that day');
+        echo '{"value":' . file_get_contents($file) . '}';
+        exit;
+    }
+
     if (!in_array($name, $ALLOWED_NAMES, true)) fail(400, 'Unknown name');
     $stmt = $pdo->prepare('SELECT value FROM app_state WHERE name = ?');
     $stmt->execute([$name]);
