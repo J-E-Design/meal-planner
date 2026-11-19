@@ -267,6 +267,28 @@
   }
   .chip.excluded { opacity: 0.45; text-decoration: line-through; }
 
+  [hidden] { display: none !important; }
+
+  /* Drag a day onto another to swap */
+  .day-badge { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+  .day-row.dragging {
+    position: relative; z-index: 20; background: var(--card-bg); cursor: grabbing;
+    box-shadow: 0 14px 30px rgba(0,0,0,0.22); scale: 1.03; transition: none; animation: none;
+  }
+  .day-row.drop-target { outline: 2px dashed #E85D3D; outline-offset: -2px; }
+
+  /* Shopping list: aisles and ticks */
+  .shop-progress { font-size: 13px; font-weight: 700; color: #5B7F4B; margin: 0 0 8px; min-height: 1em; }
+  .shop-list .shop-aisle {
+    list-style: none; margin: 14px 0 2px -18px; font-family: 'Baloo 2', sans-serif; font-weight: 700;
+    font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.6;
+  }
+  .shop-list .shop-aisle:first-child { margin-top: 0; }
+  .shop-aisle-emoji { margin-right: 6px; }
+  .shop-item { cursor: pointer; user-select: none; -webkit-user-select: none; transition: color 0.15s ease; }
+  .shop-item.ticked { text-decoration: line-through; color: var(--muted2); }
+  .shop-list .shop-empty { list-style: none; margin-left: -18px; color: var(--muted2); font-weight: 600; }
+
   /* Tonight card - only the newer looks show it */
   .tonight-card { display: none; }
 

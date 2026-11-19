@@ -283,3 +283,19 @@
   [data-look="fridge"] .day-row.landed,
   [data-look="fridge"] .modal { animation: none; }
 }
+
+/* ---- Drag to swap ---- */
+[data-look="fridge"] .day-row.dragging { background: var(--paper); box-shadow: 0 18px 30px -10px rgba(60, 40, 20, 0.5); }
+[data-look="fridge"] .day-row.drop-target { outline-color: var(--accent); }
+
+/* ---- Aisles and ticks (aisle headings sit on the notepad lines) ---- */
+[data-look="fridge"] .shop-progress { font-family: var(--hand); font-size: 20px; font-weight: 700; color: var(--primary); margin: -6px 0 6px; }
+[data-look="fridge"] .shop-list .shop-aisle {
+  margin: 0; font-family: var(--round); font-weight: 600; font-size: 13px; letter-spacing: 1px;
+  color: var(--accent); line-height: 36px; height: 36px;
+}
+[data-look="fridge"] .shop-list .shop-empty { margin: 0; font-size: 21px; }
+[data-look="fridge"] .shop-item.ticked {
+  color: var(--muted2); text-decoration: line-through; text-decoration-color: var(--accent);
+  text-decoration-thickness: 2.5px;
+}

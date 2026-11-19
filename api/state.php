@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate');
 
-$ALLOWED_NAMES = ['meals', 'week', 'settings', 'history'];
+$ALLOWED_NAMES = ['meals', 'week', 'settings', 'history', 'ticks'];
 $MAX_BYTES = 2 * 1024 * 1024; // 2 MB per value is far more than this app needs
 
 function fail($code, $msg) {

@@ -355,6 +355,8 @@ async function init() {
   }
   applySettings();
   showApp();
+  // Ticks are optional extra data - never let them stop the app loading.
+  stateGet("ticks", []).then(t => { ticks = Array.isArray(t) ? t : []; renderShoppingList(); }).catch(() => {});
   renderWeek();
   renderMeals();
   renderSettingsView();
@@ -447,9 +449,60 @@ function renderWeek() {
   document.querySelectorAll("[data-lock]").forEach(btn => {
     btn.addEventListener("click", (e) => { e.stopPropagation(); toggleLock(parseInt(btn.dataset.lock)); });
   });
+  list.querySelectorAll(".day-row").forEach((row, i) => enableDayDrag(row, i));
 
   renderTonight();
   renderShoppingList();
+}
+
+// ---- Drag a day (by its day badge) onto another day to swap them ----
+function enableDayDrag(row, i) {
+  const handle = row.querySelector(".day-badge");
+  handle.setAttribute("title", "Drag to swap with another day");
+  handle.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    e.preventDefault();
+    const startY = e.clientY;
+    // Other rows don't move during a drag, so their positions can be measured once.
+    const others = [...document.querySelectorAll("#weekList .day-row")]
+      .map((r, j) => ({ r, j, rect: r.getBoundingClientRect() }))
+      .filter(o => o.j !== i);
+    let moved = false;
+    let target = null;
+    try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+
+    const onMove = (ev) => {
+      const dy = ev.clientY - startY;
+      if (!moved && Math.abs(dy) < 6) return;
+      if (!moved) { moved = true; row.classList.add("dragging"); }
+      row.style.translate = `0 ${dy}px`;
+      const over = others.find(o => ev.clientY >= o.rect.top && ev.clientY <= o.rect.bottom);
+      const next = over ? over.j : null;
+      if (next !== target) {
+        others.forEach(o => o.r.classList.toggle("drop-target", o.j === next));
+        target = next;
+      }
+    };
+    const onEnd = () => {
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onEnd);
+      handle.removeEventListener("pointercancel", onEnd);
+      row.classList.remove("dragging");
+      row.style.translate = "";
+      others.forEach(o => o.r.classList.remove("drop-target"));
+      if (moved && target !== null) swapDays(i, target);
+    };
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onEnd);
+    handle.addEventListener("pointercancel", onEnd);
+  });
+}
+function swapDays(a, b) {
+  [week[a], week[b]] = [week[b], week[a]];
+  saveWeek(week);
+  renderWeek();
+  if (currentLook().shuffle !== "classic") animateDays([a, b]);
+  showToast(`Swapped ${FULL_DAYS[a]} and ${FULL_DAYS[b]}`);
 }
 
 const FULL_DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -499,6 +552,7 @@ function shuffleAll() {
     const before = week;
     week = pickWeek();
     saveWeek(week);
+    clearTicks(); // new week, new shop
     saveHistory([week.filter(d => d && !d.eatingOut).map(d => d.text), ...history].slice(0, 2));
     renderWeek();
     animateDays(week.map((d, i) => (d && !(before[i] && (before[i].locked || before[i].eatingOut))) ? i : -1).filter(i => i >= 0));
@@ -535,9 +589,36 @@ async function resetWeek() {
   if (!ok) return;
   week = week.map(d => d && (d.locked || d.eatingOut) ? d : null);
   saveWeek(week);
+  clearTicks();
   renderWeek();
 }
 document.getElementById("resetWeekBtn").addEventListener("click", resetWeek);
+
+// ---- Aisles: group the shopping list in the order you walk round the shop ----
+const AISLES = [
+  { id: "veg", label: "Fruit & veg", emoji: "🥕" },
+  { id: "meat", label: "Meat & fish", emoji: "🥩" },
+  { id: "dairy", label: "Dairy & eggs", emoji: "🧀" },
+  { id: "bakery", label: "Bakery", emoji: "🍞" },
+  { id: "cupboard", label: "Cupboard", emoji: "🥫" },
+  { id: "frozen", label: "Frozen", emoji: "🧊" },
+  { id: "other", label: "Everything else", emoji: "🛒" },
+];
+// First match wins, so the specific rules come before the general ones
+// (e.g. "chicken stock" is cupboard, "chicken nuggets" is frozen, "chicken" is meat).
+const AISLE_RULES = [
+  ["cupboard", /tortilla chips|crisps/i],
+  ["frozen", /frozen|nugget|fish ?finger|kiev|yorkshire|fishcake|ice ?cream|\bchips\b|hash ?brown|waffle/i],
+  ["cupboard", /\btins?\b|tinned|canned|passata|sauce|stock|gravy|paste|coconut|hoops|\bkit\b|granules|\bbeans\b|salsa|ketchup|mayo|soy|vinegar|\boil\b|flour|sugar|spice|seasoning|cumin|paprika|dried|taco shell|stuffing|\bjar\b|rice|pasta|spaghetti|penne|noodle|lasagne|macaroni|couscous|oats|cereal|biscuit/i],
+  ["meat", /mince|beef|chicken|turkey|pork|lamb|steak|sausage|bacon|pancetta|\bham\b|gammon|chorizo|salami|meatball|fish|salmon|\bcod\b|haddock|prawn|tuna|mackerel|tofu|quorn/i],
+  ["dairy", /chees|cheddar|mozzarella|parmesan|halloumi|feta|milk|cream|butter|yog|cr[eè]me|\beggs?\b/i],
+  ["bakery", /bread|\brolls?\b|\bwraps?\b|tortilla|pitta|naan|bagel|baguette|\bbuns?\b|crumpet|pizza base|croissant/i],
+  ["veg", /onion|garlic|potato|carrot|broccoli|lettuce|tomato|pepper|mushroom|coriander|parsley|basil|ginger|lemon|lime|spinach|\bpeas\b|courgette|leek|celery|cucumber|avocado|herb|\bveg|salad|sweetcorn|cabbage|cauliflower|parsnip|swede|apple|banana|berr|fruit|chilli|kale|beansprout|squash|aubergine/i],
+];
+function aisleFor(text) {
+  for (const [id, re] of AISLE_RULES) if (re.test(text)) return id;
+  return "other";
+}
 
 function buildShoppingList() {
   const seen = new Map();
@@ -551,11 +632,12 @@ function buildShoppingList() {
       if (seen.has(key)) {
         seen.get(key).count++;
       } else {
-        seen.set(key, { text: ing.trim(), count: 1 });
+        seen.set(key, { key, text: ing.trim(), count: 1, aisle: aisleFor(ing) });
       }
     });
   });
-  return [...seen.values()];
+  const order = AISLES.map(a => a.id);
+  return [...seen.values()].sort((a, b) => order.indexOf(a.aisle) - order.indexOf(b.aisle));
 }
 
 function formatShoppingItem(item) {
@@ -565,12 +647,95 @@ function formatShoppingItem(item) {
 function renderShoppingList() {
   const items = buildShoppingList();
   const ul = document.getElementById("shopList");
+  const progress = document.getElementById("shopProgress");
+  const clearBtn = document.getElementById("clearTicksBtn");
   if (items.length === 0) {
-    ul.innerHTML = `<li style="list-style:none; margin-left:-18px; color:#B3A594; font-weight:600;">Plan your week to build a shopping list.</li>`;
+    ul.innerHTML = `<li class="shop-empty">Plan your week to build a shopping list.</li>`;
+    progress.textContent = "";
+    clearBtn.hidden = true;
     return;
   }
-  ul.innerHTML = items.map(i => `<li>${escapeHtml(formatShoppingItem(i))}</li>`).join("");
+  const tickSet = new Set(ticks);
+  const done = items.filter(i => tickSet.has(i.key)).length;
+  ul.innerHTML = AISLES.map(a => {
+    const group = items.filter(i => i.aisle === a.id);
+    if (!group.length) return "";
+    return `<li class="shop-aisle" role="presentation"><span class="shop-aisle-emoji" aria-hidden="true">${a.emoji}</span>${escapeHtml(a.label)}</li>` +
+      group.map(i => {
+        const on = tickSet.has(i.key);
+        return `<li class="shop-item${on ? " ticked" : ""}" role="checkbox" tabindex="0" aria-checked="${on}" data-tick="${escapeHtml(i.key)}">${escapeHtml(formatShoppingItem(i))}</li>`;
+      }).join("");
+  }).join("");
+  progress.textContent = done === 0 ? "Tap an item to tick it off — you'll both see it."
+    : done === items.length ? "All done — everything's in the trolley! 🎉"
+    : `${done} of ${items.length} in the trolley`;
+  clearBtn.hidden = done === 0;
 }
+
+// ---- Shopping ticks: shared between phones ----
+let ticks = [];
+let tickChain = Promise.resolve();
+let tickWritesPending = 0;
+let tickPoll = null;
+
+function toggleTick(key) {
+  const nowOn = !ticks.includes(key);
+  ticks = nowOn ? [...ticks, key] : ticks.filter(k => k !== key);
+  renderShoppingList();
+  tickWritesPending++;
+  // Read-modify-write against the server so two people ticking at once don't wipe each other out.
+  tickChain = tickChain.then(async () => {
+    try {
+      const latest = await stateGet("ticks", []);
+      const set = new Set(Array.isArray(latest) ? latest : []);
+      if (nowOn) set.add(key); else set.delete(key);
+      await stateSet("ticks", [...set]);
+      if (tickWritesPending === 1) { ticks = [...set]; renderShoppingList(); }
+    } catch (e) {
+      showToast("Couldn't sync that tick — check your connection.");
+    } finally {
+      tickWritesPending--;
+    }
+  });
+}
+async function clearTicks() {
+  ticks = [];
+  renderShoppingList();
+  tickChain = tickChain.then(() => stateSet("ticks", []).catch(() => {}));
+}
+async function refreshTicks() {
+  if (document.hidden || tickWritesPending > 0) return;
+  try {
+    const latest = await stateGet("ticks", []);
+    if (tickWritesPending > 0) return;
+    const next = Array.isArray(latest) ? latest : [];
+    if (JSON.stringify(next) !== JSON.stringify(ticks)) {
+      ticks = next;
+      renderShoppingList();
+    }
+  } catch (e) { /* offline - keep what we have */ }
+}
+function startTickPolling() {
+  stopTickPolling();
+  refreshTicks();
+  tickPoll = setInterval(refreshTicks, 5000);
+}
+function stopTickPolling() {
+  if (tickPoll) clearInterval(tickPoll);
+  tickPoll = null;
+}
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && tickPoll) refreshTicks();
+});
+document.getElementById("shopList").addEventListener("click", (e) => {
+  const li = e.target.closest("[data-tick]");
+  if (li) toggleTick(li.dataset.tick);
+});
+document.getElementById("shopList").addEventListener("keydown", (e) => {
+  const li = e.target.closest("[data-tick]");
+  if (li && (e.key === " " || e.key === "Enter")) { e.preventDefault(); toggleTick(li.dataset.tick); }
+});
+document.getElementById("clearTicksBtn").addEventListener("click", clearTicks);
 
 function escapeHtml(str) {
   const d = document.createElement("div");
@@ -581,7 +746,7 @@ function escapeHtml(str) {
 document.getElementById("shuffleBtn").addEventListener("click", shuffleAll);
 
 document.getElementById("copyBtn").addEventListener("click", async () => {
-  const items = buildShoppingList();
+  const items = buildShoppingList().filter(i => !ticks.includes(i.key));
   if (items.length === 0) return;
   const text = items.map(formatShoppingItem).join("\n");
   try {
@@ -995,6 +1160,7 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
     document.getElementById("shopView").classList.toggle("active", target === "shop");
     document.getElementById("mealsView").classList.toggle("active", target === "meals");
     document.getElementById("settingsView").classList.toggle("active", target === "settings");
+    if (target === "shop") startTickPolling(); else stopTickPolling();
     const titles = { plan: "What's for tea? 🍲", shop: "Shopping list 🛒", meals: "My meals 📖", settings: "Settings ⚙️" };
     const subtitles = {
       plan: "Tap the button, get a week of dinners.",

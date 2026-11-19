@@ -293,3 +293,24 @@
   [data-look="chalk"] .day-row.writing .day-meal,
   [data-look="chalk"] .day-row.writing .day-meal-btn::before { animation: none; }
 }
+
+/* ---- Drag to swap ---- */
+[data-look="chalk"] .day-row.dragging { background: var(--bg); background-image: var(--texture); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25); }
+[data-look="chalk"] .day-row.drop-target { outline: 2px dashed var(--accent); outline-offset: -1px; }
+
+/* ---- Aisles and ticks ---- */
+[data-look="chalk"] .shop-progress { font-family: var(--hand); font-size: 15px; color: var(--muted); text-align: center; margin: -6px 0 10px; }
+[data-look="chalk"] .shop-list .shop-aisle {
+  display: block; margin: 16px 0 0; padding: 0 0 6px; border-bottom: 1.5px solid var(--rule-strong);
+  font-family: var(--label); font-weight: 700; font-size: 11.5px; letter-spacing: 2.5px; color: var(--accent);
+}
+[data-look="chalk"] .shop-list .shop-aisle:first-child { margin-top: 0; }
+[data-look="chalk"] .shop-list .shop-aisle::before,
+[data-look="chalk"] .shop-list .shop-empty::before,
+[data-look="chalk"] .shop-aisle-emoji { display: none; }
+[data-look="chalk"] .shop-list .shop-empty { display: block; margin: 0; border: none; font-style: italic; }
+[data-look="chalk"] .shop-list li.shop-item.ticked { color: var(--muted2); text-decoration: line-through; }
+[data-look="chalk"] .shop-list li.shop-item.ticked::before {
+  content: "✓"; display: flex; align-items: center; justify-content: center; font-family: var(--label);
+  font-size: 13px; font-weight: 700; line-height: 1; color: var(--accent); border-color: var(--accent);
+}
