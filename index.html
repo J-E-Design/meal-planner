@@ -114,6 +114,7 @@
       <ul class="shop-list" id="shopList"></ul>
       <div class="shop-actions">
         <button class="btn-secondary" id="clearTicksBtn" hidden>✓ Finish shop</button>
+        <button class="btn-secondary move-items-btn" id="moveItemsBtn" aria-pressed="false">↕ Move items</button>
       </div>
     </div>
   </div>
@@ -203,7 +204,16 @@
       <button type="button" class="btn-secondary stats-open" id="statsOpenBtn">See your stats — most eaten, takeaways, vetoes…</button>
     </div>
     <div class="settings-section">
-      <h2 class="settings-heading">🛒 Your shop's layout</h2>
+      <h2 class="settings-heading">🛒 Shopping</h2>
+      <div class="toggle-row">
+        <label for="householdSelect">Cooking for</label>
+        <select class="time-input" id="householdSelect">
+          <option value="1">1 person</option><option value="2">2 people</option><option value="3">3 people</option>
+          <option value="4">4 people</option><option value="5">5 people</option><option value="6">6 people</option>
+        </select>
+      </div>
+      <p class="hint">Recipes that say how many they serve are scaled to this on the shopping list.</p>
+      <h3 class="settings-subheading">Your shop's layout</h3>
       <p class="hint">Put the aisles in the order you walk round, and the shopping list follows it. Shared between you both.</p>
       <ol class="aisle-order" id="aisleOrder"></ol>
     </div>
@@ -295,6 +305,10 @@
     <input class="field-input" id="mealNameInput" placeholder="e.g. Fish pie">
     <label class="field-label">Ingredients (one per line)</label>
     <textarea class="field-textarea" id="mealIngInput" placeholder="Salmon fillets&#10;Mashed potato&#10;Peas&#10;Cheddar"></textarea>
+    <div class="serves-row">
+      <label class="field-label" for="mealServesInput">Serves <span class="field-hint">(optional — scales the shopping list to how many you cook for)</span></label>
+      <input class="field-input serves-input" id="mealServesInput" type="number" inputmode="numeric" min="1" max="12" placeholder="e.g. 4">
+    </div>
     <div class="lock-row meal-defrost-row">
       <input type="checkbox" id="mealDefrostCheckbox">
       <label for="mealDefrostCheckbox">🧊 Needs defrosting the night before

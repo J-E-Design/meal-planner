@@ -1234,30 +1234,139 @@ function aisleFor(text) {
   for (const [id, re] of AISLE_RULES) if (re.test(text)) return id;
   return "other";
 }
+// Your own choice (Move items) wins over the rules; shared between phones in settings.
+function itemAisle(key, text) {
+  const o = settings.aisleOverrides && settings.aisleOverrides[key];
+  return AISLES.some(a => a.id === o) ? o : aisleFor(text);
+}
+
+// ---- Quantities: "2 onions" + "1 onion" -> "3 onions"; scaled to how many you cook for ----
+const FRACTIONS = { "½": 0.5, "¼": 0.25, "¾": 0.75, "⅓": 1 / 3, "⅔": 2 / 3 };
+const UNIT_ALIASES = {
+  g: "g", gram: "g", grams: "g", kg: "kg", ml: "ml", l: "l", litre: "l", litres: "l", liter: "l",
+  tbsp: "tbsp", tablespoon: "tbsp", tablespoons: "tbsp", tsp: "tsp", teaspoon: "tsp", teaspoons: "tsp",
+  pack: "pack", packs: "pack", packet: "pack", packets: "pack", tin: "tin", tins: "tin", can: "tin", cans: "tin",
+  jar: "jar", jars: "jar", clove: "clove", cloves: "clove", rasher: "rasher", rashers: "rasher",
+  slice: "slice", slices: "slice", bunch: "bunch", bunches: "bunch", bag: "bag", bags: "bag",
+};
+const QTY_RE = /^(\d+(?:[.,]\d+)?(?:\s*\/\s*\d+)?|[½¼¾⅓⅔])\s*(?:x\s+)?/i;
+function parseQty(s) {
+  if (FRACTIONS[s]) return FRACTIONS[s];
+  if (s.includes("/")) { const [a, b] = s.split("/").map(Number); return b ? a / b : NaN; }
+  return parseFloat(s.replace(",", "."));
+}
+function parseIngredient(raw) {
+  const text = raw.trim().replace(/\s+/g, " ");
+  const m = text.match(QTY_RE);
+  if (!m) return { qty: null, unit: "", name: text };
+  let qty = parseQty(m[1]);
+  let rest = text.slice(m[0].length);
+  // "1 x 280g jar of ..." - the "x" means "this many of": keep the size in the name
+  if (/^\d+\s*x\s/i.test(text)) return isNaN(qty) ? { qty: null, unit: "", name: text } : { qty, unit: "", name: rest, times: true };
+  const u = rest.match(/^([a-zA-Z]+)\.?\s+(?:of\s+)?/);
+  let unit = "", unitText = "";
+  if (u && UNIT_ALIASES[u[1].toLowerCase()]) { unit = UNIT_ALIASES[u[1].toLowerCase()]; unitText = u[1]; rest = rest.slice(u[0].length); }
+  else {
+    // "500g mince" - unit stuck to the number
+    const stuck = text.match(/^(\d+(?:[.,]\d+)?)\s*(kg|g|ml|l)\b\s*(?:of\s+)?/i);
+    if (stuck) { unit = stuck[2].toLowerCase(); rest = text.slice(stuck[0].length); }
+  }
+  if (!rest || isNaN(qty)) return { qty: null, unit: "", name: text };
+  // Weigh and measure in one base unit so 1.5 kg + 500 g adds up
+  if (unit === "kg") { qty *= 1000; unit = "g"; }
+  if (unit === "l") { qty *= 1000; unit = "ml"; }
+  return { qty, unit, unitText, name: rest };
+}
+function singular(word) {
+  return word.replace(/(tomato|potato)es$/i, "$1").replace(/ies$/i, "y").replace(/([^s])s$/i, "$1");
+}
+function itemKey(name) {
+  return name.toLowerCase().replace(/[.,;:!]+$/, "").split(" ").map(singular).join(" ").trim();
+}
+function roundQty(q, unit) {
+  if (unit === "g" || unit === "ml") return q >= 50 ? Math.ceil(q / 10) * 10 : Math.ceil(q / 5) * 5;
+  if (unit === "kg" || unit === "l" || unit === "tbsp" || unit === "tsp") return Math.ceil(q * 2) / 2;
+  return Math.ceil(q - 1e-9); // you can't buy half an onion
+}
+function formatNumber(q) {
+  const whole = Math.floor(q), frac = q - whole;
+  const f = Math.abs(frac - 0.5) < 0.01 ? "½" : Math.abs(frac - 0.25) < 0.01 ? "¼" : Math.abs(frac - 0.75) < 0.01 ? "¾" : "";
+  if (f) return (whole ? whole : "") + f;
+  return String(Math.round(q * 10) / 10);
+}
+// "Serves 4", "4-6", "4 people" -> 4
+function parseServings(v) {
+  const m = String(v || "").match(/\d+/);
+  const n = m ? parseInt(m[0]) : 0;
+  return n >= 1 && n <= 24 ? n : 0;
+}
+function householdSize() { const n = parseInt(settings.householdSize); return n >= 1 && n <= 12 ? n : 2; }
 
 function buildShoppingList(view = shopView()) {
   const seen = new Map();
+  const add = (raw, scale, flags) => {
+    const p = parseIngredient(raw);
+    if (!p.name) return;
+    const key = itemKey(p.name);
+    let item = seen.get(key);
+    if (!item) {
+      item = { key, name: p.name, text: raw.trim(), parts: [], count: 0, aisle: itemAisle(key, p.name) };
+      seen.set(key, item);
+    }
+    item.count++;
+    item.parts.push({ qty: p.qty === null ? null : p.qty * scale, unit: p.unit, unitText: p.unitText || "", times: !!p.times, name: p.name });
+    Object.assign(item, flags);
+  };
   shopWeeks.flatMap(o => weekDays(o)).forEach(d => {
     if (!d || d.eatingOut) return;
     const meal = mealByName(d.text);
     if (!meal) return;
-    (meal.ingredients || []).forEach(ing => {
-      const key = ing.trim().toLowerCase();
-      if (!key) return;
-      if (seen.has(key)) {
-        seen.get(key).count++;
-      } else {
-        seen.set(key, { key, text: ing.trim(), count: 1, aisle: aisleFor(ing), fromMeal: true });
-      }
-    });
+    const serves = parseInt(meal.servings);
+    const scale = serves >= 1 ? householdSize() / serves : 1;
+    (meal.ingredients || []).forEach(ing => { if (ing.trim()) add(ing, scale, { fromMeal: true }); });
   });
   // Things you've added yourself (milk, bin bags...)
-  view.extras.items.forEach(x => {
-    if (seen.has(x.key)) seen.get(x.key).extra = true;
-    else seen.set(x.key, { key: x.key, text: x.text, count: 1, aisle: aisleFor(x.text), extra: true });
-  });
+  view.extras.items.forEach(x => add(x.text, 1, { extra: true, extraKey: x.key }));
+  for (const item of seen.values()) item.text = describeItem(item);
   const order = orderedAisles().map(a => a.id);
   return [...seen.values()].sort((a, b) => order.indexOf(a.aisle) - order.indexOf(b.aisle));
+}
+// "3 onions", "650g mince beef", or the original text with "×2" when amounts don't line up
+function formatAmount(q, unit, unitText) {
+  q = roundQty(q, unit);
+  if (unit === "g" || unit === "ml") {
+    return q >= 1000 ? `${formatNumber(q / 1000)}${unit === "g" ? "kg" : "l"}` : `${formatNumber(q)}${unit}`;
+  }
+  if (!unit) return formatNumber(q);
+  // keep the unit as the recipe wrote it ("cloves", "tins"), matching singular/plural to the amount
+  let word = unitText || unit;
+  if (q > 1 && !/s$/i.test(word) && !["tbsp", "tsp"].includes(word.toLowerCase())) word += word.endsWith("ch") ? "es" : "s";
+  if (q <= 1 && /s$/i.test(word) && UNIT_ALIASES[word.toLowerCase().replace(/e?s$/, "")]) word = word.replace(/e?s$/, "");
+  return `${formatNumber(q)} ${word}`;
+}
+function describeItem(item) {
+  const parts = item.parts;
+  const units = new Set(parts.map(p => p.unit));
+  const withQty = parts.filter(p => p.qty !== null);
+  // "Onion" + "2 onions": a plain count-less mention counts as one
+  const countOnly = units.size === 1 && !parts[0].unit && withQty.length > 0 && !parts.some(p => p.times);
+  if ((withQty.length === parts.length || countOnly) && units.size === 1 && withQty.length) {
+    const unit = parts[0].unit;
+    const total = parts.reduce((s, p) => s + (p.qty === null ? 1 : p.qty), 0);
+    item.count = 1; // the total already says how many
+    const biggest = withQty.reduce((best, p) => (p.qty > best.qty ? p : best), withQty[0]);
+    if (parts.length === 1) {
+      const p = parts[0];
+      return p.times ? `${formatNumber(roundQty(p.qty, ""))} x ${p.name}` : `${formatAmount(p.qty, p.unit, p.unitText)} ${p.name}`;
+    }
+    if (unit) return `${formatAmount(total, unit, biggest.unitText)} ${biggest.name}`;
+    const rounded = roundQty(total, "");
+    // Use the recipe's own plural if one of them already said "2 onions"; only add an "s" to short names
+    const named = biggest.qty > 1 || rounded <= 1 || /s$/i.test(biggest.name) || biggest.name.split(" ").length > 2 ? biggest.name : biggest.name + "s";
+    return `${formatNumber(rounded)} ${named}`;
+  }
+  const plain = parts.find(p => p.qty === null);
+  return plain ? plain.name.replace(/^./, c => c.toUpperCase()) : item.text;
 }
 
 // ---- Your shop's layout: aisle order (shared, so you both walk the same route) ----
@@ -1266,7 +1375,13 @@ function orderedAisles() {
   const known = saved.map(id => AISLES.find(a => a.id === id)).filter(Boolean);
   return [...known, ...AISLES.filter(a => !saved.includes(a.id))];
 }
+document.getElementById("householdSelect").addEventListener("change", (e) => {
+  settings.householdSize = parseInt(e.target.value);
+  saveSettings(settings);
+  renderShoppingList();
+});
 function renderAisleOrder() {
+  document.getElementById("householdSelect").value = String(householdSize());
   const list = orderedAisles();
   document.getElementById("aisleOrder").innerHTML = list.map((a, i) => `
     <li class="aisle-row">
@@ -1313,7 +1428,7 @@ function renderShoppingList() {
   // Suggestions for the add box: things you've added before that aren't on the list now
   const onList = new Set(items.map(i => i.key));
   document.getElementById("shopPastItems").innerHTML = view.extras.past
-    .filter(p => !onList.has(p.toLowerCase())).slice(0, 60)
+    .filter(p => !onList.has(itemKey(parseIngredient(p).name))).slice(0, 60)
     .map(p => `<option value="${escapeHtml(p)}"></option>`).join("");
 
   if (items.length === 0) {
@@ -1332,14 +1447,21 @@ function renderShoppingList() {
       group.map(i => {
         const on = tickSet.has(i.key);
         const removable = i.extra && !i.fromMeal;
+        if (shopMoveMode) {
+          // Move items: pick an aisle per item instead of ticking
+          return `<li class="shop-item moving"><span class="shop-item-text">${escapeHtml(formatShoppingItem(i))}</span>` +
+            `<select class="aisle-pick" data-aisle-key="${escapeHtml(i.key)}" aria-label="Aisle for ${escapeHtml(i.text)}">` +
+            AISLES.map(x => `<option value="${x.id}"${x.id === i.aisle ? " selected" : ""}>${escapeHtml(x.label)}</option>`).join("") +
+            `</select></li>`;
+        }
         return `<li class="shop-item${on ? " ticked" : ""}${i.extra ? " extra" : ""}" role="checkbox" tabindex="0" aria-checked="${on}" data-tick="${escapeHtml(i.key)}">` +
           `<span class="shop-item-text">${escapeHtml(formatShoppingItem(i))}</span>` +
-          (removable ? `<button type="button" class="shop-remove" data-remove="${escapeHtml(i.key)}" aria-label="Remove ${escapeHtml(i.text)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>` : "") +
+          (removable ? `<button type="button" class="shop-remove" data-remove="${escapeHtml(i.extraKey || i.key)}" aria-label="Remove ${escapeHtml(i.text)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>` : "") +
           `</li>`;
       }).join("");
   }).join("");
   if (html !== lastShopHtml) { ul.innerHTML = html; lastShopHtml = html; } // avoid flicker on background refreshes
-  progress.textContent = (done === 0 ? "Tap an item to tick it off — you'll both see it."
+  progress.textContent = shopMoveMode ? "Pick the right aisle for any item — the app will remember it for both of you." : (done === 0 ? "Tap an item to tick it off — you'll both see it."
     : done === items.length ? "All done — everything's in the trolley! 🎉"
     : `${done} of ${items.length} in the trolley`) + syncNote;
   finishBtn.hidden = done === 0;
@@ -1384,7 +1506,7 @@ function applyShopOp(state, op) {
       break;
     case "removeExtra": items = items.filter(i => i.key !== op.key); ticks.delete(op.key); break;
     case "setExtras": items = op.items; break;
-    case "finishShop": items = items.filter(i => !ticks.has(i.key)); ticks.clear(); break;
+    case "finishShop": items = items.filter(i => !ticks.has(i.key) && !ticks.has(itemKey(parseIngredient(i.text).name))); ticks.clear(); break;
   }
   return { ticks: [...ticks], extras: { items, past } };
 }
@@ -1495,7 +1617,7 @@ function clearShopTicks() {
 }
 function finishShop() {
   const before = shopView();
-  const removed = before.extras.items.filter(i => before.ticks.includes(i.key)).length;
+  const removed = before.extras.items.filter(i => before.ticks.includes(i.key) || before.ticks.includes(itemKey(parseIngredient(i.text).name))).length;
   queueShopOp({ type: "finishShop" });
   showToast(removed ? `Shop done — ${removed} added item${removed === 1 ? "" : "s"} cleared` : "Shop done — all unticked", {
     undo: () => {
@@ -1504,7 +1626,35 @@ function finishShop() {
     },
   });
 }
+// ---- Move items: choose an item's aisle yourself (remembered for both of you) ----
+let shopMoveMode = false;
+document.getElementById("moveItemsBtn").addEventListener("click", () => {
+  shopMoveMode = !shopMoveMode;
+  const btn = document.getElementById("moveItemsBtn");
+  btn.textContent = shopMoveMode ? "✓ Done moving" : "↕ Move items";
+  btn.setAttribute("aria-pressed", String(shopMoveMode));
+  document.getElementById("shopList").classList.toggle("move-mode", shopMoveMode);
+  lastShopHtml = "";
+  renderShoppingList();
+});
+document.getElementById("shopList").addEventListener("change", (e) => {
+  const sel = e.target.closest("[data-aisle-key]");
+  if (!sel) return;
+  const key = sel.dataset.aisleKey;
+  const item = buildShoppingList().find(i => i.key === key);
+  const overrides = { ...(settings.aisleOverrides || {}) };
+  // Choosing what the rules would have picked anyway removes the override
+  if (item && aisleFor(item.parts[0].name) === sel.value) delete overrides[key]; else overrides[key] = sel.value;
+  settings.aisleOverrides = overrides;
+  saveSettings(settings);
+  lastShopHtml = "";
+  renderShoppingList();
+  const label = (AISLES.find(a => a.id === sel.value) || {}).label;
+  if (item && label) showToast(`${item.text} → ${label} from now on`);
+});
+
 document.getElementById("shopList").addEventListener("click", (e) => {
+  if (shopMoveMode) return;
   const rm = e.target.closest("[data-remove]");
   if (rm) {
     e.stopPropagation();
@@ -1527,7 +1677,7 @@ document.getElementById("shopAddForm").addEventListener("submit", (e) => {
   const input = document.getElementById("shopAddInput");
   const text = input.value.trim().replace(/\s+/g, " ");
   if (!text) return;
-  const key = text.toLowerCase();
+  const key = itemKey(parseIngredient(text).name);
   const existing = buildShoppingList().find(i => i.key === key);
   if (existing) {
     if (shopView().ticks.includes(key)) queueShopOp({ type: "tick", key, on: false });
@@ -1631,6 +1781,23 @@ document.getElementById("daySaveBtn").addEventListener("click", () => {
 });
 
 // ---- Meals view ----
+// Weeks since a meal was last on the plan (up to today); -1 if it hasn't been yet.
+function weeksSinceEaten(name) {
+  const today = isoDate(new Date());
+  let last = "";
+  for (const [k, days] of Object.entries(plan.weeks)) {
+    days.forEach((d, i) => {
+      if (!d || d.text !== name) return;
+      const dt = new Date(k + "T12:00:00");
+      dt.setDate(dt.getDate() + i);
+      const iso = isoDate(dt);
+      if (iso <= today && iso > last) last = iso;
+    });
+  }
+  if (!last) return -1;
+  return Math.floor((Date.now() - new Date(last + "T12:00:00")) / (7 * 864e5));
+}
+
 let mealSearch = "";
 function mealMatches(m, query) {
   const haystack = (m.name + " " + (m.ingredients || []).join(" ")).toLowerCase();
@@ -1671,6 +1838,7 @@ function renderMeals() {
       </div>
       <div class="meal-ing">${(m.ingredients||[]).map(escapeHtml).join(", ") || "No ingredients added"}</div>
       ${m.defrost ? `<div class="meal-tag">🧊 Defrost the night before</div>` : ""}
+      ${(() => { const w = weeksSinceEaten(m.name); return w >= 4 ? `<div class="meal-tag ages-tag">${currentLook().noEmoji ? "" : "🕰️ "}Not had for ${w} weeks</div>` : ""; })()}
       ${ratings.byMeal[m.name] && (ratings.byMeal[m.name].up || ratings.byMeal[m.name].down)
         ? `<div class="meal-rating">${ratings.byMeal[m.name].up ? `👍 ${ratings.byMeal[m.name].up}` : ""}${ratings.byMeal[m.name].up && ratings.byMeal[m.name].down ? " · " : ""}${ratings.byMeal[m.name].down ? `👎 ${ratings.byMeal[m.name].down}` : ""}</div>` : ""}
       ${m.sourceUrl ? `<a href="${escapeHtml(m.sourceUrl)}" target="_blank" rel="noopener" class="meal-recipe-link">📖 Recipe</a>` : ""}
@@ -1757,6 +1925,7 @@ function openMealModal(id, prefill) {
   document.getElementById("mealNameInput").value = meal ? meal.name : (prefill ? prefill.name : "");
   document.getElementById("mealIngInput").value = meal ? (meal.ingredients || []).join("\n") : (prefill ? prefill.ingredients.join("\n") : "");
   document.getElementById("mealDefrostCheckbox").checked = !!(meal && meal.defrost);
+  document.getElementById("mealServesInput").value = (meal && meal.servings) || (prefill && parseServings(prefill.servings)) || "";
   document.getElementById("importUrlInput").value = "";
   document.getElementById("importStatus").textContent = "";
   document.getElementById("importStatus").className = "import-status";
@@ -1787,6 +1956,7 @@ async function importRecipe(link) {
     if (!res.ok || data.error) throw new Error(data.error || "Couldn't import that recipe.");
     if (data.name) document.getElementById("mealNameInput").value = data.name;
     if (data.ingredients && data.ingredients.length) document.getElementById("mealIngInput").value = data.ingredients.join("\n");
+    if (parseServings(data.servings)) document.getElementById("mealServesInput").value = parseServings(data.servings);
     editingMealSourceUrl = data.sourceUrl || url;
     setMealPhoto(data.image || null);
     let site = "";
@@ -1845,11 +2015,13 @@ document.getElementById("mealSaveBtn").addEventListener("click", () => {
   const oldName = editingMealId ? mealById(editingMealId).name : null;
 
   const defrost = document.getElementById("mealDefrostCheckbox").checked;
+  const servings = parseServings(document.getElementById("mealServesInput").value);
   if (editingMealId) {
     const meal = mealById(editingMealId);
     meal.name = name;
     meal.ingredients = ingredients;
     if (defrost) meal.defrost = true; else delete meal.defrost;
+    if (servings) meal.servings = servings; else delete meal.servings;
     if (editingMealImage) meal.image = editingMealImage; else delete meal.image;
     if (editingMealSourceUrl) meal.sourceUrl = editingMealSourceUrl;
     if (oldName && oldName !== name) {
@@ -1859,6 +2031,7 @@ document.getElementById("mealSaveBtn").addEventListener("click", () => {
     meals.push({
       id: uid(), name, ingredients, sourceUrl: editingMealSourceUrl || undefined,
       ...(defrost ? { defrost: true } : {}), ...(editingMealImage ? { image: editingMealImage } : {}),
+      ...(servings ? { servings } : {}),
     });
   }
   saveMeals(meals);
@@ -1963,6 +2136,7 @@ document.getElementById("restoreFileInput").addEventListener("change", (e) => {
       sourceUrl: typeof m.sourceUrl === "string" ? m.sourceUrl : undefined,
       ...(m.defrost ? { defrost: true } : {}),
       ...(typeof m.image === "string" ? { image: m.image } : {}),
+      ...(parseServings(m.servings) ? { servings: parseServings(m.servings) } : {}),
     }));
     saveMeals(meals);
     renderMeals();
