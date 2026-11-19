@@ -10,7 +10,8 @@ $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if (in_array($origin, $ALLOWED_ORIGINS, true)) {
     header("Access-Control-Allow-Origin: $origin");
     header('Access-Control-Allow-Methods: GET, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type');
+    header('Access-Control-Allow-Headers: Content-Type, X-Household-Key');
+    header('Access-Control-Max-Age: 86400');
 }
 header('Vary: Origin');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
@@ -27,6 +28,16 @@ function fail(int $code, string $msg) {
 // stops casual use from other websites; the rate limit below covers the rest. A secret
 // token isn't possible here because the app's code is public on GitHub Pages.)
 if (!in_array($origin, $ALLOWED_ORIGINS, true)) fail(403, 'Not allowed.');
+
+// Household passcode (same as the data API)
+$config = @include __DIR__ . '/config.php';
+if (is_array($config) && !empty($config['passcode_sha256'])) {
+    $key = strtolower(trim($_SERVER['HTTP_X_HOUSEHOLD_KEY'] ?? ''));
+    if (!hash_equals($config['passcode_sha256'], hash('sha256', $key))) {
+        usleep(400000);
+        fail(401, 'Passcode needed');
+    }
+}
 
 // ---- Simple rate limit: 40 imports per hour per IP ----
 $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';

@@ -25,6 +25,18 @@
   <p>Loading your meals…</p>
 </div>
 
+<div class="state-screen" id="lockState">
+  <div class="lock-emoji" aria-hidden="true">🔒</div>
+  <h1 class="lock-title">What's for tea?</h1>
+  <p class="lock-intro">Enter your household passcode. You only need to do this once on each phone.</p>
+  <form class="lock-form" id="lockForm" autocomplete="off">
+    <input class="field-input" id="lockInput" type="text" autocapitalize="none" autocorrect="off" spellcheck="false"
+           enterkeyhint="go" placeholder="e.g. otter-scone-gravy-12" aria-label="Household passcode" aria-describedby="lockError">
+    <button type="submit" class="btn-primary" id="lockBtn">Unlock</button>
+  </form>
+  <p class="lock-error" id="lockError" aria-live="polite"></p>
+</div>
+
 <div class="state-screen" id="errorState">
   <p>🛜 Couldn't reach the server.</p>
   <button class="btn-primary" id="retryBtn">Try again</button>
@@ -149,6 +161,10 @@
       <div class="toggle-row">
         <span class="who-current">Belongs to <strong id="whoCurrent">—</strong></span>
         <button type="button" class="btn-secondary who-change" id="whoChangeBtn">Change</button>
+      </div>
+      <div class="toggle-row">
+        <span class="who-current">🔒 Household passcode saved</span>
+        <button type="button" class="btn-secondary who-change" id="lockPhoneBtn">Lock this phone</button>
       </div>
     </div>
     <div class="settings-section">

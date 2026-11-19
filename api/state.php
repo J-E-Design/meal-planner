@@ -10,7 +10,7 @@ $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if (in_array($origin, $ALLOWED_ORIGINS, true)) {
     header("Access-Control-Allow-Origin: $origin");
     header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type');
+    header('Access-Control-Allow-Headers: Content-Type, X-Household-Key');
     header('Access-Control-Max-Age: 86400');
 }
 header('Vary: Origin');
@@ -36,6 +36,15 @@ function fail($code, $msg) {
 $configFile = __DIR__ . '/config.php';
 if (!file_exists($configFile)) fail(500, 'Server not configured: copy config.sample.php to config.php');
 $config = require $configFile;
+
+// Household passcode: when set in config.php, every request must carry it.
+if (!empty($config['passcode_sha256'])) {
+    $key = strtolower(trim($_SERVER['HTTP_X_HOUSEHOLD_KEY'] ?? ''));
+    if (!hash_equals($config['passcode_sha256'], hash('sha256', $key))) {
+        usleep(400000); // slow down guessing
+        fail(401, 'Passcode needed');
+    }
+}
 
 try {
     $pdo = new PDO(

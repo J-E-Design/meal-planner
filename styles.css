@@ -553,7 +553,16 @@
     gap: 14px; min-height: 100vh; text-align: center; padding: 20px; color: var(--muted); font-weight: 600;
   }
   .state-screen .btn-primary { flex: none; padding: 11px 28px; }
-  body.state-loading #loadingState, body.state-error #errorState { display: flex; }
+  body.state-loading #loadingState, body.state-error #errorState, body.state-locked #lockState { display: flex; }
+  body.state-locked .wrap, body.state-locked .bottom-nav { display: none; }
+  #lockState { gap: 10px; max-width: 420px; margin: 0 auto; }
+  .lock-emoji { font-size: 54px; }
+  .lock-title { margin: 0; font-size: 28px; color: var(--text); }
+  .lock-intro { margin: 0 0 6px; font-size: 14px; line-height: 1.5; }
+  .lock-form { display: flex; gap: 8px; width: 100%; }
+  .lock-form .field-input { margin: 0; flex: 1; min-width: 0; text-align: center; }
+  .lock-form .btn-primary { flex: none; padding: 0 20px; }
+  .lock-error { min-height: 1.2em; margin: 0; font-size: 13px; font-weight: 700; color: #B4472E; }
   body.state-loading .wrap, body.state-loading .bottom-nav,
   body.state-error .wrap, body.state-error .bottom-nav { display: none; }
   .loading-spinner {

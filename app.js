@@ -202,8 +202,26 @@ const STARTER_MEALS = [
 // state.php only accepts cross-origin requests from the GitHub Pages origin.
 const API_URL = "https://jamieemerydesign.co.uk/meal-planner/state.php";
 
+// ---- Household passcode: entered once per phone, sent with every request ----
+const KEY_STORE = "mp_key";
+function getKey() { try { return localStorage.getItem(KEY_STORE) || ""; } catch (e) { return ""; } }
+function setKey(k) { try { if (k) localStorage.setItem(KEY_STORE, k); else localStorage.removeItem(KEY_STORE); } catch (e) {} }
+function normaliseKey(k) { return (k || "").trim().toLowerCase().replace(/\s+/g, "-"); }
+function authHeaders(extra = {}) {
+  const k = getKey();
+  return k ? { ...extra, "X-Household-Key": k } : extra;
+}
+let locked = false;
+function handleUnauthorised() {
+  if (locked) return;
+  locked = true;
+  setKey("");
+  showLockScreen("That passcode has changed — please enter it again.");
+}
+
 async function stateGet(name, fallback) {
-  const res = await fetch(`${API_URL}?name=${encodeURIComponent(name)}`, { cache: "no-store" });
+  const res = await fetch(`${API_URL}?name=${encodeURIComponent(name)}`, { cache: "no-store", headers: authHeaders() });
+  if (res.status === 401) { handleUnauthorised(); throw new Error("Passcode needed"); }
   if (!res.ok) throw new Error("GET " + name + " failed: " + res.status);
   const data = await res.json();
   return data.value === null || data.value === undefined ? fallback : data.value;
@@ -211,10 +229,59 @@ async function stateGet(name, fallback) {
 async function stateSet(name, value) {
   const res = await fetch(API_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ name, value }),
   });
+  if (res.status === 401) { handleUnauthorised(); throw new Error("Passcode needed"); }
   if (!res.ok) throw new Error("SET " + name + " failed: " + res.status);
+}
+
+function showLockScreen(message) {
+  document.getElementById("lockError").textContent = message || "";
+  document.getElementById("lockInput").value = "";
+  setBodyState("state-locked");
+  setTimeout(() => document.getElementById("lockInput").focus(), 50);
+}
+document.getElementById("lockForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const key = normaliseKey(document.getElementById("lockInput").value);
+  const errorEl = document.getElementById("lockError");
+  const btn = document.getElementById("lockBtn");
+  if (!key) { errorEl.textContent = "Type your passcode first."; return; }
+  btn.disabled = true;
+  errorEl.textContent = "Checking…";
+  try {
+    const res = await fetch(`${API_URL}?name=settings`, { cache: "no-store", headers: { "X-Household-Key": key } });
+    if (res.status === 401) { errorEl.textContent = "That's not it — check the passcode and try again."; return; }
+    if (!res.ok) throw new Error("status " + res.status);
+    setKey(key);
+    locked = false;
+    errorEl.textContent = "";
+    setBodyState("state-loading");
+    init();
+  } catch (err) {
+    errorEl.textContent = "Couldn't reach the server — check your connection.";
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById("lockPhoneBtn").addEventListener("click", async () => {
+  const ok = await showConfirm("You'll need the household passcode to open the app on this phone again.", {
+    title: "Lock this phone?", confirmLabel: "Lock it", danger: false,
+  });
+  if (!ok) return;
+  setKey("");
+  showLockScreen();
+});
+
+// Calendar feed key = first 32 hex chars of sha256("calendar:" + passcode), so the
+// calendar link never contains the passcode itself.
+async function calendarToken() {
+  const key = getKey();
+  if (!key || !(window.crypto && crypto.subtle)) return "";
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("calendar:" + key));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
 }
 
 async function saveMeals(m) {
@@ -445,6 +512,7 @@ function applySettings() {
 }
 
 async function init() {
+  if (!getKey()) { showLockScreen(); return; }
   try {
     const [remoteMeals, remoteWeek, remoteSettings, remoteHistory, remotePlan, remoteNotes, remoteRatings, remoteSwipes] = await Promise.all([
       stateGet("meals", []),
@@ -485,7 +553,7 @@ async function init() {
     viewOffset = 0;
     week = weekDays(0);
   } catch (e) {
-    showLoadError();
+    if (!locked) showLoadError(); // a wrong/changed passcode shows the lock screen instead
     return;
   }
   applySettings();
@@ -1713,7 +1781,8 @@ async function importRecipe(link) {
   status.className = "import-status";
   btn.disabled = true;
   try {
-    const res = await fetch(`${IMPORT_URL}?url=${encodeURIComponent(url)}`, { cache: "no-store" });
+    const res = await fetch(`${IMPORT_URL}?url=${encodeURIComponent(url)}`, { cache: "no-store", headers: authHeaders() });
+    if (res.status === 401) { handleUnauthorised(); return; }
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.error) throw new Error(data.error || "Couldn't import that recipe.");
     if (data.name) document.getElementById("mealNameInput").value = data.name;
@@ -2140,8 +2209,11 @@ document.getElementById("statsOverlay").addEventListener("click", (e) => { if (e
 
 // ---- Calendar feed settings ----
 function renderCalendarSettings() {
-  document.getElementById("calAppleLink").href = "webcal://" + CALENDAR_FEED;
-  document.getElementById("calGoogleLink").href = "https://calendar.google.com/calendar/r?cid=" + encodeURIComponent("webcal://" + CALENDAR_FEED);
+  calendarToken().then(token => {
+    const feed = "webcal://" + CALENDAR_FEED + (token ? "?key=" + token : "");
+    document.getElementById("calAppleLink").href = feed;
+    document.getElementById("calGoogleLink").href = "https://calendar.google.com/calendar/r?cid=" + encodeURIComponent(feed);
+  });
   document.getElementById("teaTimeInput").value = settings.teaTime || DEFAULT_SETTINGS.teaTime;
   document.getElementById("remindSelect").value = String(settings.remindMins ?? DEFAULT_SETTINGS.remindMins);
   document.getElementById("defrostTimeInput").value = settings.defrostTime || DEFAULT_SETTINGS.defrostTime;

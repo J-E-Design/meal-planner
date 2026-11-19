@@ -9,6 +9,16 @@ header('Content-Disposition: inline; filename="whats-for-tea.ics"');
 header('Cache-Control: no-cache, max-age=0');
 
 $config = require __DIR__ . '/config.php';
+
+// The feed URL carries its own key (?key=...), separate from the household passcode,
+// because calendar apps can't send headers.
+if (!empty($config['calendar_token']) && !hash_equals($config['calendar_token'], (string)($_GET['key'] ?? ''))) {
+    usleep(400000);
+    http_response_code(403);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo "Calendar key needed - re-add the calendar from the app's Settings.";
+    exit;
+}
 try {
     $pdo = new PDO(
         "mysql:host={$config['db_host']};dbname={$config['db_name']};charset=utf8mb4",
