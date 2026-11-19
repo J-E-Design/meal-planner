@@ -338,10 +338,6 @@
 [data-look="calm"] .import-status { font-weight: 500; }
 
 /* ---- Ratings, vetoes, swipe & match ---- */
-[data-look="calm"] .rate-card { border: none; border-radius: 20px; box-shadow: var(--shadow); margin-top: 14px; }
-[data-look="calm"] .rate-question { font-weight: 500; font-size: 16px; }
-[data-look="calm"] .rate-question strong { font-weight: 700; }
-[data-look="calm"] .rate-btn { border: none; background: var(--row-bg); font-family: var(--ui); font-weight: 600; }
 [data-look="calm"] .veto-tag { font-family: var(--ui); font-weight: 600; font-size: 12px; color: var(--accent); }
 [data-look="calm"] .swipe-launch { border: none; background: var(--row-bg); font-family: var(--ui); font-weight: 600; margin-top: 10px; }
 [data-look="calm"] .swipe-status { font-family: var(--ui); font-weight: 500; }

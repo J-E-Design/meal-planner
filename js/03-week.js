@@ -1,14 +1,7 @@
-// The week view: shuffle weighting, ratings, week switcher, drag to swap, Tonight, swipe & match, vetoes.
+// The week view: shuffle weighting, week switcher, drag to swap, Tonight, swipe & match, vetoes.
 // Loaded in order by index.html (plain scripts sharing one global scope - no build step).
-// ---- How likely each meal is to come up: favourites, your 👍/👎 ratings and this week's swipes ----
-let ratings = { byMeal: {}, asked: {} }; // byMeal: { "Tacos": { up: 2, down: 0 } }, asked: { "2026-11-18": "up" }
+// ---- How likely each meal is to come up: favourites and this week's swipes ----
 let swipes = {};                          // { "2026-11-22": { "Jamie": { "Tacos": true, "Stew": false } } }
-function normaliseRatings(v) {
-  return {
-    byMeal: v && typeof v.byMeal === "object" && !Array.isArray(v.byMeal) ? v.byMeal : {},
-    asked: v && typeof v.asked === "object" && !Array.isArray(v.asked) ? v.asked : {},
-  };
-}
 function normaliseSwipes(v) { return v && typeof v === "object" && !Array.isArray(v) ? v : {}; }
 function swipeVotes(name, offset = viewOffset) {
   const byPerson = swipes[weekKey(offset)] || {};
@@ -22,8 +15,6 @@ function swipeVotes(name, offset = viewOffset) {
 function mealWeight(name, offset = viewOffset) {
   const m = mealByName(name);
   let w = m && m.favourite ? 3 : 1;
-  const r = ratings.byMeal[name];
-  if (r) w *= Math.min(2.5, Math.max(0.35, 1 + 0.35 * ((r.up || 0) - (r.down || 0))));
   const { yes, no } = swipeVotes(name, offset);
   if (yes >= 2) w *= 4;                 // a match - you both fancy it
   else if (yes === 1 && no === 0) w *= 2;
@@ -39,72 +30,6 @@ function weightedDeck(excludeNames) {
   const usePool = pool.length ? pool : (allowed.length ? allowed : meals);
   return usePool.flatMap(m => Array(deckCopies(mealWeight(m.name)) || 1).fill(m.name));
 }
-
-// ---- Quick ratings: "How was Tacos last night?" ----
-let ratingsChain = Promise.resolve();
-function weekStartOf(date) { const d = new Date(date); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - d.getDay()); return d; }
-function pendingRating() {
-  for (const back of [1, 2]) {
-    const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - back);
-    const key = isoDate(d);
-    if (ratings.asked[key]) continue;
-    const days = plan.weeks[isoDate(weekStartOf(d))];
-    const entry = Array.isArray(days) ? days[d.getDay()] : null;
-    if (entry && !entry.eatingOut && mealByName(entry.text)) {
-      return { date: key, name: entry.text, when: back === 1 ? "last night" : "on " + FULL_DAYS[d.getDay()] };
-    }
-  }
-  return null;
-}
-function renderRating() {
-  const card = document.getElementById("rateCard");
-  const p = viewOffset === 0 ? pendingRating() : null;
-  card.hidden = !p;
-  if (!p) return;
-  card.dataset.date = p.date;
-  card.dataset.name = p.name;
-  document.getElementById("rateQuestion").innerHTML = `How was the <strong>${escapeHtml(p.name)}</strong> ${p.when}?`;
-}
-function saveRating(date, name, vote) {
-  ratings.asked[date] = vote;
-  if (vote !== "skip") {
-    const r = ratings.byMeal[name] || { up: 0, down: 0 };
-    r[vote]++;
-    ratings.byMeal[name] = r;
-  }
-  renderRating();
-  renderMeals();
-  ratingsChain = ratingsChain.then(async () => {
-    try {
-      const latest = normaliseRatings(await stateGet("ratings", null));
-      if (!latest.asked[date]) {
-        latest.asked[date] = vote;
-        if (vote !== "skip") {
-          const r = latest.byMeal[name] || { up: 0, down: 0 };
-          r[vote] = (r[vote] || 0) + 1;
-          latest.byMeal[name] = r;
-        }
-      }
-      const cutoff = isoDate(new Date(Date.now() - 45 * 864e5));
-      for (const k of Object.keys(latest.asked)) if (k < cutoff) delete latest.asked[k];
-      await stateSet("ratings", latest);
-      ratings = latest;
-      renderMeals();
-    } catch (e) {
-      showToast("Couldn't save that rating — check your connection.");
-    }
-  });
-}
-document.getElementById("rateCard").addEventListener("click", (e) => {
-  const btn = e.target.closest("[data-rate]");
-  if (!btn) return;
-  const card = document.getElementById("rateCard");
-  const { date, name } = card.dataset;
-  const vote = btn.dataset.rate;
-  saveRating(date, name, vote);
-  if (vote === "up") showToast(`Noted — ${name} will come up a bit more often 😋`);
-  if (vote === "down") showToast(`Noted — ${name} will come up less often`);
-});
 
 function pickWeek() {
   const result = week.map(d => d && (d.locked || d.eatingOut) ? d : null);
@@ -193,7 +118,6 @@ function renderWeek() {
   list.querySelectorAll(".day-row").forEach((row, i) => enableDayDrag(row, i));
 
   renderTonight();
-  renderRating();
   renderSwipeStatus();
   renderShopWeeks();
   renderShoppingList();

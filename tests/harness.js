@@ -141,16 +141,6 @@
       click('[data-open="2"]'); await wait(100);
       expect($("#dayVetoBtn").disabled, "second veto blocked");
     },
-    async rating() {
-      const d = new Date(); d.setHours(12); d.setDate(d.getDate() - 1);
-      const wk = isoDate(weekStartOf(d));
-      plan.weeks[wk] = plan.weeks[wk] || emptyWeek();
-      plan.weeks[wk][d.getDay()] = { text: "Lasagne", locked: false };
-      renderWeek(); await wait(100);
-      expect(!$("#rateCard").hidden, "rating card shown");
-      click('[data-rate="up"]'); await wait(500);
-      expect(state.ratings.byMeal.Lasagne.up === 1, "rating saved");
-    },
     async swipe_and_match() {
       click("#weekNext"); await wait(100);
       click("#swipeLaunchBtn"); await wait(200);

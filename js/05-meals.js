@@ -141,8 +141,6 @@ function renderMeals() {
       <div class="meal-ing">${(m.ingredients||[]).map(escapeHtml).join(", ") || "No ingredients added"}</div>
       ${m.defrost ? `<div class="meal-tag">🧊 Defrost the night before</div>` : ""}
       ${(() => { const w = weeksSinceEaten(m.name); return w >= 4 ? `<div class="meal-tag ages-tag">${currentLook().noEmoji ? "" : "🕰️ "}Not had for ${w} weeks</div>` : ""; })()}
-      ${ratings.byMeal[m.name] && (ratings.byMeal[m.name].up || ratings.byMeal[m.name].down)
-        ? `<div class="meal-rating">${ratings.byMeal[m.name].up ? `👍 ${ratings.byMeal[m.name].up}` : ""}${ratings.byMeal[m.name].up && ratings.byMeal[m.name].down ? " · " : ""}${ratings.byMeal[m.name].down ? `👎 ${ratings.byMeal[m.name].down}` : ""}</div>` : ""}
       ${m.sourceUrl ? `<a href="${escapeHtml(m.sourceUrl)}" target="_blank" rel="noopener" class="meal-recipe-link">📖 Recipe</a>` : ""}
     </div>
   `).join("");

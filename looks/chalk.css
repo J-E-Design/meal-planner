@@ -362,11 +362,6 @@
 [data-look="chalk"] .import-status.error { color: var(--accent2); }
 
 /* ---- Ratings, vetoes, swipe & match ---- */
-[data-look="chalk"] .rate-card { background: transparent; border: 1.5px solid var(--rule-strong); border-radius: 2px; text-align: center; }
-[data-look="chalk"] .rate-question { font-family: var(--item); font-size: 17px; font-weight: 500; font-style: italic; }
-[data-look="chalk"] .rate-actions { justify-content: center; }
-[data-look="chalk"] .rate-btn { border-radius: 2px; background: transparent; border-color: var(--border2); font-family: var(--label); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; }
-[data-look="chalk"] .rate-skip { margin-left: 0; font-family: var(--label); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
 [data-look="chalk"] .veto-tag { order: 3; flex-basis: 100%; text-align: right; font-family: var(--label); font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--accent2); }
 [data-look="chalk"] .swipe-launch { border-radius: 2px; font-family: var(--label); font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; }
 [data-look="chalk"] .swipe-status { font-family: var(--hand); font-weight: 400; font-size: 14px; }

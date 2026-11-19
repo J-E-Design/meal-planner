@@ -138,10 +138,9 @@ function teaStats() {
     const marks = [first, ...pizzaDates, now];
     for (let i = 1; i < marks.length; i++) pizzaGap = Math.max(pizzaGap, Math.round((marks[i] - marks[i - 1]) / 864e5));
   }
-  const loved = Object.entries(ratings.byMeal).filter(([, r]) => r.up).sort((a, b) => b[1].up - a[1].up).slice(0, 3);
   const vetoes = {};
   entries.forEach(e => { if (e.vetoedBy) vetoes[e.vetoedBy] = (vetoes[e.vetoedBy] || 0) + 1; });
-  return { entries, home, top, takeaways, takeawayDay, pizzaGap, pizzaCount: pizzaDates.length, loved, vetoes, first, year };
+  return { entries, home, top, takeaways, takeawayDay, pizzaGap, pizzaCount: pizzaDates.length, vetoes, first, year };
 }
 function openStats() {
   const s = teaStats();
@@ -162,7 +161,6 @@ function openStats() {
       ${s.top.length ? `<h3 class="stats-h">Most eaten</h3><ol class="stats-top">${s.top.map(([n, c], i) =>
         `<li><span class="stats-rank">${["🥇", "🥈", "🥉", "4", "5"][i]}</span><span class="stats-name">${escapeHtml(n)}</span><span class="stats-count">×${c}</span></li>`).join("")}</ol>` : ""}
       ${s.takeawayDay >= 0 ? `<p class="stats-line">🥡 Favourite night off: <strong>${FULL_DAYS[s.takeawayDay]}</strong></p>` : ""}
-      ${s.loved.length ? `<p class="stats-line">😋 Most loved: <strong>${s.loved.map(([n, r]) => `${escapeHtml(n)} (👍${r.up})`).join(", ")}</strong></p>` : ""}
       ${Object.keys(s.vetoes).length ? `<p class="stats-line">🙅 Vetoes used: <strong>${Object.entries(s.vetoes).map(([p, c]) => `${escapeHtml(p)} ${c}`).join(" · ")}</strong></p>` : ""}
     `;
   }
@@ -172,8 +170,8 @@ document.getElementById("statsOpenBtn").addEventListener("click", openStats);
 document.getElementById("statsCloseBtn").addEventListener("click", () => document.getElementById("statsOverlay").classList.remove("active"));
 document.getElementById("statsOverlay").addEventListener("click", (e) => { if (e.target.id === "statsOverlay") e.target.classList.remove("active"); });
 
-// ---- Full backups: everything (meals, plans, notes, ratings, shopping...) ----
-const BACKUP_NAMES = ["meals", "week", "settings", "history", "plan", "notes", "ratings", "swipes", "ticks", "extras", "activity"];
+// ---- Full backups: everything (meals, plans, notes, swipes, shopping...) ----
+const BACKUP_NAMES = ["meals", "week", "settings", "history", "plan", "notes", "swipes", "ticks", "extras", "activity"];
 async function collectEverything() {
   const values = await Promise.all(BACKUP_NAMES.map(n => stateGet(n, null).catch(() => null)));
   const data = {};
@@ -196,7 +194,7 @@ async function restoreEverything(data, label) {
     return;
   }
   const ok = await showConfirm(
-    `This replaces everything — ${data.meals.length} meal${data.meals.length === 1 ? "" : "s"}, your planned weeks, notes, ratings and shopping list — with ${label}. Both phones will see the change.`,
+    `This replaces everything — ${data.meals.length} meal${data.meals.length === 1 ? "" : "s"}, your planned weeks, notes and shopping list — with ${label}. Both phones will see the change.`,
     { title: "Restore everything?", confirmLabel: "Restore" }
   );
   if (!ok) return;

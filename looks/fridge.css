@@ -340,11 +340,6 @@
 [data-look="fridge"] .import-status { font-family: var(--hand); font-size: 17px; font-weight: 700; }
 
 /* ---- Ratings, vetoes, swipe & match ---- */
-[data-look="fridge"] .rate-card { background: #FFF6B8; border: none; border-radius: 3px; box-shadow: var(--shadow); transform: rotate(0.8deg); }
-[data-look="fridge"] body.dark-mode .rate-card { background: #4A4326; }
-[data-look="fridge"] .rate-question { font-family: var(--hand); font-size: 22px; font-weight: 700; }
-[data-look="fridge"] .rate-btn { font-family: var(--round); font-weight: 500; background: rgba(255,255,255,0.6); border-color: transparent; }
-[data-look="fridge"] body.dark-mode .rate-btn { background: rgba(0,0,0,0.25); }
 [data-look="fridge"] .veto-tag { font-family: var(--hand); font-size: 16px; font-weight: 700; color: var(--accent); }
 [data-look="fridge"] .swipe-launch { font-family: var(--hand); font-size: 20px; border-color: var(--border2); }
 [data-look="fridge"] .swipe-status { font-family: var(--hand); font-size: 18px; color: var(--primary); }

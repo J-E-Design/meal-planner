@@ -419,21 +419,6 @@
   .meal-name { display: flex; align-items: center; gap: 10px; }
   .meal-thumb { width: 40px; height: 40px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: var(--row-bg); }
 
-  /* Quick rating */
-  .rate-card {
-    margin: 16px 0 0; padding: 14px 16px; border-radius: 16px; background: var(--card-bg);
-    border: 1.5px solid var(--border);
-  }
-  .rate-question { margin: 0 0 10px; font-size: 15px; font-weight: 600; color: var(--text); }
-  .rate-question strong { font-weight: 800; }
-  .rate-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .rate-btn {
-    border: 1.5px solid var(--border2); background: var(--row-bg); color: var(--text); border-radius: 999px;
-    padding: 8px 14px; font-family: inherit; font-weight: 700; font-size: 14px; cursor: pointer;
-  }
-  .rate-btn:active { transform: scale(0.96); }
-  .rate-skip { border: none; background: none; color: var(--muted); font-family: inherit; font-weight: 700; font-size: 13px; cursor: pointer; margin-left: auto; padding: 8px 4px; }
-  .meal-rating { display: inline-block; margin: 6px 0 0 8px; font-size: 12px; font-weight: 700; color: var(--muted); }
 
   /* Veto */
   .btn-secondary.veto-btn { width: 100%; margin: -2px 0 14px; }

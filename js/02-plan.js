@@ -89,20 +89,17 @@ function saveNote(date, text) {
 async function refreshPlan() {
   if (planSavesPending > 0 || document.querySelector(".modal-overlay.active")) return;
   try {
-    const [p, n, r, s] = await Promise.all([
-      stateGet("plan", null), stateGet("notes", {}),
-      stateGet("ratings", null).catch(() => null), stateGet("swipes", {}).catch(() => ({})),
+    const [p, n, s] = await Promise.all([
+      stateGet("plan", null), stateGet("notes", {}), stateGet("swipes", {}).catch(() => ({})),
     ]);
     if (planSavesPending > 0) return;
     const nextPlan = normalisePlan(p);
     const nextNotes = n && typeof n === "object" && !Array.isArray(n) ? n : {};
-    const nextRatings = normaliseRatings(r);
     const nextSwipes = normaliseSwipes(s);
-    const changed = JSON.stringify([nextPlan, nextNotes, nextRatings, nextSwipes]) !== JSON.stringify([plan, notes, ratings, swipes]);
+    const changed = JSON.stringify([nextPlan, nextNotes, nextSwipes]) !== JSON.stringify([plan, notes, swipes]);
     if (changed) {
       plan = nextPlan;
       notes = nextNotes;
-      ratings = nextRatings;
       swipes = nextSwipes;
       week = weekDays(viewOffset);
       renderWeek();
@@ -228,14 +225,13 @@ function applySettings() {
 async function init() {
   if (!getKey()) { showLockScreen(); return; }
   try {
-    const [remoteMeals, remoteWeek, remoteSettings, remoteHistory, remotePlan, remoteNotes, remoteRatings, remoteSwipes] = await Promise.all([
+    const [remoteMeals, remoteWeek, remoteSettings, remoteHistory, remotePlan, remoteNotes, remoteSwipes] = await Promise.all([
       stateGet("meals", []),
       stateGet("week", Array(7).fill(null)),
       stateGet("settings", DEFAULT_SETTINGS),
       stateGet("history", []),
       stateGet("plan", null).catch(() => null),
       stateGet("notes", {}).catch(() => ({})),
-      stateGet("ratings", null).catch(() => null),
       stateGet("swipes", {}).catch(() => ({})),
     ]);
     meals = remoteMeals;
@@ -244,7 +240,6 @@ async function init() {
     history = remoteHistory;
     plan = normalisePlan(remotePlan);
     notes = remoteNotes && typeof remoteNotes === "object" && !Array.isArray(remoteNotes) ? remoteNotes : {};
-    ratings = normaliseRatings(remoteRatings);
     swipes = normaliseSwipes(remoteSwipes);
 
     // fresh database: seed it from whatever this device already had saved locally

@@ -33,7 +33,7 @@ cp tests/fixture.js tests/harness.js "$TMP/"
 sed -i 's#<script src="js/01-core.js"></script>#<script src="fixture.js"></script>\n<script src="harness.js"></script>\n<script src="js/01-core.js"></script>#' "$TMP/index.html"
 grep -q 'src="harness.js"' "$TMP/index.html" || { echo "Couldn't add the test harness to index.html"; exit 1; }
 
-CASES="loads shuffle_no_duplicates shuffle_keeps_locked next_week notes shopping_aisles_and_quantities ticks_offline_then_sync extras_and_finish_shop move_item_aisle veto rating swipe_and_match search_meals delete_meal_undo import_recipe backup_restore lock_screen escape_closes_dialog"
+CASES="loads shuffle_no_duplicates shuffle_keeps_locked next_week notes shopping_aisles_and_quantities ticks_offline_then_sync extras_and_finish_shop move_item_aisle veto swipe_and_match search_meals delete_meal_undo import_recipe backup_restore lock_screen escape_closes_dialog"
 echo "== Browser tests"
 run_case() { # look case [extra-query]
   local dir; dir="$(mktemp -d)"
