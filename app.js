@@ -64,7 +64,7 @@ const DEFAULT_SETTINGS = { sound: "nom.mp3", muted: false, confetti: true, darkM
 const LOOKS = [
   { id: "classic", label: "Classic", desc: "The original", swatch: ["#FFF6EA", "#F5B942", "#E85D3D", "#5B7F4B"], themeColor: "#E85D3D", available: true, shuffle: "classic" },
   { id: "fridge", label: "Fridge door", desc: "Paper notes & magnets", swatch: ["#EFE8DC", "#FFFDF7", "#D94F30", "#2F7D6B"], themeColor: "#EFE8DC", themeColorDark: "#1F1C19", available: true, shuffle: "reel" },
-  { id: "chalk", label: "Café chalkboard", desc: "This week's menu", swatch: ["#232A26", "#F4F1E8", "#E9B949", "#D9725B"], available: false },
+  { id: "chalk", label: "Café chalkboard", desc: "This week's menu", swatch: ["#F4EFE4", "#1F1B16", "#A8322D", "#1F2621"], themeColor: "#F4EFE4", themeColorDark: "#1F2621", available: true, shuffle: "write", noEmoji: true },
   { id: "calm", label: "Calm modern", desc: "Big, bold & clean", swatch: ["#F7F7F5", "#111111", "#FF5A36", "#E8E8E4"], available: false },
 ];
 const LOOK_KEY = "mp_look";
@@ -78,6 +78,7 @@ function setLook(id) {
   try { localStorage.setItem(LOOK_KEY, look.id); } catch (e) {}
   applyThemeColor();
   renderWeek();
+  renderMeals();
   renderLookOptions();
 }
 function applyThemeColor() {
@@ -88,6 +89,30 @@ function applyThemeColor() {
 }
 function prefersReducedMotion() {
   return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+// Meal label with or without its emoji, depending on the look.
+function mealLabel(name) {
+  return currentLook().noEmoji ? escapeHtml(name) : getMealEmoji(name) + " " + escapeHtml(name);
+}
+// Run the current look's shuffle animation on the given day indices.
+function animateDays(indices) {
+  const kind = currentLook().shuffle;
+  if (kind === "reel") reelDays(indices);
+  else if (kind === "write") writeDays(indices);
+}
+// Menu being written out: each line wipes in, one after another (CSS does the drawing).
+function writeDays(indices) {
+  if (prefersReducedMotion()) return;
+  indices.forEach((i, n) => {
+    const row = document.getElementById("day-" + i);
+    if (!row) return;
+    row.style.setProperty("--n", n);
+    row.classList.remove("writing");
+    void row.offsetWidth; // restart the animation
+    row.classList.add("writing");
+    setTimeout(() => row.classList.remove("writing"), 700 + n * 160);
+  });
 }
 
 // Slot-machine reel: each day flicks through random meals, then lands, one after another.
@@ -110,8 +135,7 @@ function reelDays(indices) {
         setTimeout(() => row.classList.remove("landed"), 450);
         return;
       }
-      const name = names[Math.floor(Math.random() * names.length)];
-      el.textContent = getMealEmoji(name) + " " + name;
+      el.innerHTML = mealLabel(names[Math.floor(Math.random() * names.length)]);
       setTimeout(tick, 65);
     };
     tick();
@@ -394,7 +418,7 @@ function renderWeek() {
     row.innerHTML = `
       <div class="day-badge">${day}</div>
       <button class="day-meal-btn" data-open="${i}">
-        <div class="day-meal ${d ? "" : "empty"}">${d ? getMealEmoji(d.text) + " " + escapeHtml(d.text) : "🎲 Not decided yet"}</div>
+        <div class="day-meal ${d ? "" : "empty"}">${d ? mealLabel(d.text) : (currentLook().noEmoji ? "To be decided" : "🎲 Not decided yet")}</div>
         ${d && d.eatingOut ? `<div class="lock-tag eating-out-tag">🥡 Eating out</div>` : (d && d.locked ? `<div class="lock-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a5 5 0 00-5 5v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1V7a5 5 0 00-5-5zm-3 8V7a3 3 0 016 0v3z"/></svg>Locked</div>` : "")}
       </button>
       <div class="day-actions">
@@ -447,7 +471,7 @@ function renderTonight() {
     <span class="tonight-label">Tonight · ${FULL_DAYS[i]}</span>
     <span class="tonight-main">${main}</span>
     ${sub ? `<span class="tonight-sub">${sub}</span>` : ""}
-    <span class="tonight-next">Tomorrow: ${next ? getMealEmoji(next.text) + " " + escapeHtml(next.text) : "not decided yet"}</span>
+    <span class="tonight-next">Tomorrow: ${next ? mealLabel(next.text) : "not decided yet"}</span>
   `;
   card.setAttribute("aria-label", `Tonight: ${d ? d.text : "nothing planned"}. Tap to edit.`);
 }
@@ -472,9 +496,7 @@ function shuffleAll() {
     saveWeek(week);
     saveHistory([week.filter(d => d && !d.eatingOut).map(d => d.text), ...history].slice(0, 2));
     renderWeek();
-    if (currentLook().shuffle === "reel") {
-      reelDays(week.map((d, i) => (d && !(before[i] && (before[i].locked || before[i].eatingOut))) ? i : -1).filter(i => i >= 0));
-    }
+    animateDays(week.map((d, i) => (d && !(before[i] && (before[i].locked || before[i].eatingOut))) ? i : -1).filter(i => i >= 0));
     btn.classList.remove("pop", "spin");
     if (settings.confetti !== false) spawnConfetti(btn);
     document.getElementById("pageSubtitle").textContent = FUN_MESSAGES[Math.floor(Math.random() * FUN_MESSAGES.length)];
@@ -492,7 +514,7 @@ function rerollDay(i) {
   week[i] = { text: next.name, locked: false };
   saveWeek(week);
   renderWeek();
-  if (currentLook().shuffle === "reel") { reelDays([i]); return; }
+  if (currentLook().shuffle !== "classic") { animateDays([i]); return; }
   const row = document.getElementById("day-" + i);
   if (row) {
     row.classList.add("wiggle");
@@ -635,7 +657,7 @@ function renderMeals() {
   list.innerHTML = meals.map(m => `
     <div class="meal-card">
       <div class="meal-card-top">
-        <div class="meal-name">${getMealEmoji(m.name)} ${escapeHtml(m.name)}</div>
+        <div class="meal-name">${mealLabel(m.name)}</div>
         <div class="meal-card-actions">
           <button class="icon-btn fav-btn ${m.favourite ? "active" : ""}" data-fav="${m.id}" aria-label="${m.favourite ? "Unfavourite" : "Favourite"} ${escapeHtml(m.name)}">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="${m.favourite ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>

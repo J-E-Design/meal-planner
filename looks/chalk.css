@@ -1,0 +1,295 @@
+/* =========================================================
+   Look B: "Café chalkboard"
+   Light: a printed café menu (cream paper, black ink, serif).
+   Dark:  the chalkboard (slate, chalk handwriting, wood frame).
+   The week reads like a menu - "MON ········ Tacos".
+   Everything is scoped to html[data-look="chalk"].
+   ========================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Josefin+Sans:wght@500;600;700&family=Kalam:wght@400;700&family=Fredericka+the+Great&display=swap');
+
+[data-look="chalk"] {
+  --bg: #F4EFE4;
+  --text: #1F1B16;
+  --muted: #6E655A;
+  --muted2: #A0968A;
+  --card-bg: #F4EFE4;
+  --border: #D8CFBF;
+  --border2: #C4B9A6;
+  --input-bg: #FBF8F1;
+  --row-bg: #EAE3D5;
+  --rule: #D3C9B7;
+  --rule-strong: #1F1B16;
+  --leader: #B5AB9B;
+  --accent: #A8322D;
+  --accent2: #A8322D;
+  --ink: #1F1B16;
+  --on-ink: #F4EFE4;
+  --display: 'Playfair Display', Georgia, serif;
+  --dish: 'Playfair Display', Georgia, serif;
+  --dish-weight: 600;
+  --item: 'Playfair Display', Georgia, serif;
+  --label: 'Josefin Sans', system-ui, sans-serif;
+  --hand: 'Kalam', 'Segoe Print', cursive;
+  --texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .4 0 0 0 0 .3 0 0 0 0 .2 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+[data-look="chalk"] body.dark-mode {
+  --bg: #1F2621;
+  --text: #F2EFE6;
+  --muted: #AEB5AC;
+  --muted2: #7E877F;
+  --card-bg: #1F2621;
+  --border: rgba(242, 239, 230, 0.16);
+  --border2: rgba(242, 239, 230, 0.28);
+  --input-bg: #263029;
+  --row-bg: rgba(242, 239, 230, 0.08);
+  --rule: rgba(242, 239, 230, 0.16);
+  --rule-strong: rgba(242, 239, 230, 0.75);
+  --leader: rgba(242, 239, 230, 0.35);
+  --accent: #F0C75E;
+  --accent2: #EE9A84;
+  --ink: #F2EFE6;
+  --on-ink: #1F2621;
+  --display: 'Fredericka the Great', 'Kalam', cursive;
+  --dish: 'Kalam', 'Segoe Print', cursive;
+  --dish-weight: 700;
+  --item: 'Kalam', 'Segoe Print', cursive;
+  --texture:
+    radial-gradient(ellipse 60% 40% at 20% 15%, rgba(255,255,255,0.05), transparent 70%),
+    radial-gradient(ellipse 50% 35% at 85% 70%, rgba(255,255,255,0.04), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---- Page ---- */
+[data-look="chalk"] body {
+  background-color: var(--bg); background-image: var(--texture);
+  font-family: var(--label);
+}
+[data-look="chalk"] body::before,
+[data-look="chalk"] body::after { display: none; }
+/* Wooden frame around the chalkboard */
+[data-look="chalk"] body.dark-mode::before {
+  display: block; content: ""; position: fixed; inset: 0; z-index: 40; pointer-events: none;
+  width: auto; height: auto; border-radius: 0; filter: none; opacity: 1; animation: none; background: none;
+  border: 7px solid #6B4A2E;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.5), inset 0 0 22px rgba(0,0,0,0.55);
+  border-image: linear-gradient(135deg, #7A5535, #5A3C22 40%, #7E5A38 60%, #54371F) 1;
+}
+[data-look="chalk"] h1,
+[data-look="chalk"] h2 { font-family: var(--display); }
+
+[data-look="chalk"] .wrap { padding-top: 26px; }
+[data-look="chalk"] .header { text-align: center; }
+[data-look="chalk"] .header h1 { font-size: 34px; font-weight: 700; letter-spacing: 0; line-height: 1.1; }
+[data-look="chalk"] .header p { font-family: var(--hand); font-size: 17px; font-weight: 400; color: var(--muted); margin-top: 4px; }
+[data-look="chalk"] .header::after {
+  content: "✦"; display: block; margin: 10px auto 0; width: 160px; color: var(--accent); font-size: 12px; line-height: 1;
+  background: linear-gradient(var(--rule-strong), var(--rule-strong)) left center / 64px 1px no-repeat,
+              linear-gradient(var(--rule-strong), var(--rule-strong)) right center / 64px 1px no-repeat;
+}
+
+/* ---- Tonight's special ---- */
+[data-look="chalk"] .tonight-card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; text-align: center;
+  margin: 20px 0 4px; padding: 20px 18px 16px; background: transparent; color: var(--text); font-family: inherit; cursor: pointer;
+  border: 1.5px solid var(--rule-strong); border-radius: 2px;
+  outline: 1px solid var(--rule-strong); outline-offset: -6px;
+}
+[data-look="chalk"] .tonight-card:active { opacity: 0.8; }
+[data-look="chalk"] .tonight-magnet,
+[data-look="chalk"] .tonight-emoji { display: none; }
+[data-look="chalk"] .tonight-label {
+  font-family: var(--label); font-size: 11.5px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--accent);
+}
+[data-look="chalk"] .tonight-label::before { content: "~ "; }
+[data-look="chalk"] .tonight-label::after { content: " ~"; }
+[data-look="chalk"] .tonight-main { display: block; }
+[data-look="chalk"] .tonight-meal { font-family: var(--dish); font-weight: var(--dish-weight); font-size: 29px; line-height: 1.15; overflow-wrap: anywhere; }
+[data-look="chalk"] .tonight-meal.empty { color: var(--muted2); }
+[data-look="chalk"] .tonight-sub { font-family: var(--item); font-style: italic; font-size: 14px; color: var(--muted); }
+[data-look="chalk"] .tonight-next {
+  font-family: var(--hand); font-size: 15px; color: var(--muted); margin-top: 6px;
+}
+
+/* ---- Shuffle: a round rubber stamp ---- */
+[data-look="chalk"] .shuffle-wrap { margin: 22px 0 6px; }
+[data-look="chalk"] .shuffle-btn {
+  width: 124px; height: 124px; background: transparent; color: var(--accent);
+  border: 3px solid var(--accent); outline: 1.5px dashed var(--accent); outline-offset: -11px;
+  box-shadow: none; transform: rotate(-7deg);
+  font-family: var(--label); font-weight: 700; font-size: 12.5px; letter-spacing: 1.5px; text-transform: uppercase;
+}
+[data-look="chalk"] .shuffle-btn svg { width: 28px; height: 28px; }
+@media (hover: hover) and (pointer: fine) {
+  [data-look="chalk"] .shuffle-btn:hover { transform: rotate(-3deg) scale(1.03); }
+}
+[data-look="chalk"] .shuffle-btn:active { transform: rotate(-7deg) scale(0.93); box-shadow: none; background: color-mix(in srgb, var(--accent) 12%, transparent); }
+[data-look="chalk"] .shuffle-btn.pop { animation: chalkStamp 0.4s ease; }
+@keyframes chalkStamp {
+  0% { transform: rotate(-7deg) scale(1); }
+  35% { transform: rotate(-7deg) scale(0.88); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+  100% { transform: rotate(-7deg) scale(1); }
+}
+[data-look="chalk"] .shuffle-btn:disabled { opacity: 0.4; background: transparent; }
+
+/* ---- The week, as a menu ---- */
+[data-look="chalk"] .week-header { margin: 22px 0 6px; }
+[data-look="chalk"] .week-header h2 { font-family: var(--hand); font-size: 14px; font-weight: 400; color: var(--muted); }
+[data-look="chalk"] .reset-link {
+  color: var(--accent); font-family: var(--label); font-size: 11.5px; letter-spacing: 1.5px; text-transform: uppercase;
+}
+[data-look="chalk"] #weekList { border-top: 2px solid var(--rule-strong); }
+
+[data-look="chalk"] .day-row {
+  background: transparent; border: none; border-bottom: 1px solid var(--rule); border-radius: 0;
+  padding: 14px 0; margin: 0; position: relative;
+}
+[data-look="chalk"] .day-row.pop-in { animation: chalkFade 0.45s ease backwards; }
+@keyframes chalkFade { from { opacity: 0; } to { opacity: 1; } }
+[data-look="chalk"] .day-badge {
+  width: 46px; height: auto; background: none; color: var(--accent); margin-right: 6px; justify-content: flex-start;
+  font-family: var(--label); font-weight: 700; font-size: 13px; letter-spacing: 2px; text-transform: uppercase;
+  position: relative;
+}
+/* Today: circled in chalk/pen */
+[data-look="chalk"] .day-row.today .day-badge::after {
+  content: ""; position: absolute; left: -9px; right: 0; top: -9px; bottom: -9px;
+  border: 2px solid var(--accent2); border-radius: 50%; transform: rotate(-6deg); opacity: 0.85;
+}
+[data-look="chalk"] .day-meal-btn { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+[data-look="chalk"] .day-meal-btn::before {
+  content: ""; flex: 1 1 14px; min-width: 14px; border-bottom: 2px dotted var(--leader); transform: translateY(-5px);
+}
+[data-look="chalk"] .day-meal {
+  flex: 0 1 auto; min-width: 0; font-family: var(--dish); font-weight: var(--dish-weight); font-size: 19px; color: var(--text);
+}
+[data-look="chalk"] .day-meal.empty { font-family: var(--item); font-style: italic; font-weight: 500; color: var(--muted2); }
+[data-look="chalk"] .lock-tag {
+  order: 2; flex-shrink: 0; font-family: var(--label); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted);
+}
+[data-look="chalk"] .day-row.eating-out .day-meal { font-style: italic; color: var(--muted); font-weight: 500; }
+[data-look="chalk"] .day-row.eating-out .lock-tag { display: none; }
+[data-look="chalk"] .day-row.locked .day-meal::after { content: " ★"; color: var(--accent); font-size: 13px; }
+[data-look="chalk"] .day-row.eating-out .day-meal::after { content: none; }
+[data-look="chalk"] .day-row.locked:not(.eating-out) .lock-tag { display: none; }
+[data-look="chalk"] .day-actions { margin-left: 8px; gap: 2px; }
+[data-look="chalk"] .reroll-btn,
+[data-look="chalk"] .lock-btn { background: transparent; width: 32px; height: 32px; border-radius: 50%; color: var(--muted2); }
+[data-look="chalk"] .lock-btn.active { background: transparent; color: var(--accent); }
+
+/* Shuffle: each line is written out in turn */
+[data-look="chalk"] .day-row.writing .day-meal {
+  animation: chalkWrite 0.55s steps(16, end) backwards; animation-delay: calc(var(--n, 0) * 0.16s);
+}
+[data-look="chalk"] .day-row.writing .day-meal-btn::before {
+  animation: chalkLeader 0.3s ease-out backwards; animation-delay: calc(var(--n, 0) * 0.16s);
+  transform-origin: left;
+}
+@keyframes chalkWrite { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes chalkLeader { from { transform: translateY(-5px) scaleX(0); } to { transform: translateY(-5px) scaleX(1); } }
+
+/* ---- Market list ---- */
+[data-look="chalk"] .shop-card {
+  background: transparent; border: 1.5px solid var(--rule-strong); border-radius: 2px;
+  outline: 1px solid var(--rule-strong); outline-offset: -6px; padding: 22px 20px 20px; margin-top: 20px;
+}
+[data-look="chalk"] .shop-card p.hint {
+  font-family: var(--label); font-size: 11.5px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--accent); text-align: center; margin-bottom: 14px;
+}
+[data-look="chalk"] .shop-list {
+  list-style: none; padding: 0; font-family: var(--item); font-size: 18px; line-height: 1.5; color: var(--text);
+}
+[data-look="chalk"] .shop-list li {
+  display: flex; align-items: center; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--rule);
+}
+[data-look="chalk"] .shop-list li::before {
+  content: ""; width: 14px; height: 14px; border: 1.5px solid var(--muted); border-radius: 2px; flex-shrink: 0;
+}
+[data-look="chalk"] .keep-tip { font-size: 12px; font-family: var(--label); }
+
+/* ---- Buttons: printed / chalk-drawn ---- */
+[data-look="chalk"] .btn-primary,
+[data-look="chalk"] .btn-secondary,
+[data-look="chalk"] .btn-danger,
+[data-look="chalk"] .btn-danger-outline {
+  border-radius: 2px; font-family: var(--label); font-weight: 700; font-size: 13px; letter-spacing: 1.5px;
+  text-transform: uppercase; padding: 13px 11px 11px;
+}
+[data-look="chalk"] .btn-primary { background: var(--ink); color: var(--on-ink); }
+[data-look="chalk"] .btn-secondary { background: transparent; border-color: var(--rule-strong); color: var(--text); }
+[data-look="chalk"] .btn-danger { background: var(--accent); color: var(--on-ink); }
+[data-look="chalk"] body:not(.dark-mode) .btn-danger { color: #fff; }
+[data-look="chalk"] .btn-danger-outline { border-color: var(--accent); color: var(--accent); }
+
+/* ---- My meals: the menu ---- */
+[data-look="chalk"] #mealsList { border-top: 2px solid var(--rule-strong); }
+[data-look="chalk"] .meal-card {
+  background: transparent; border: none; border-bottom: 1px solid var(--rule); border-radius: 0; padding: 16px 0 14px; margin: 0;
+}
+[data-look="chalk"] .meal-name { font-family: var(--dish); font-weight: var(--dish-weight); font-size: 20px; }
+[data-look="chalk"] .meal-ing { font-family: var(--item); font-style: italic; font-weight: 500; font-size: 15px; color: var(--muted); }
+[data-look="chalk"] .icon-btn { background: transparent; border-radius: 50%; color: var(--muted2); }
+[data-look="chalk"] .icon-btn.danger { color: var(--accent); }
+[data-look="chalk"] .icon-btn.fav-btn.active { color: var(--accent); }
+[data-look="chalk"] .meal-recipe-link { color: var(--accent); font-family: var(--label); letter-spacing: 1px; text-transform: uppercase; font-size: 11px; }
+[data-look="chalk"] .add-meal-btn {
+  border-radius: 2px; border: 1.5px dashed var(--border2); font-family: var(--label); font-size: 12.5px;
+  letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-top: 12px;
+}
+
+/* ---- Modals ---- */
+[data-look="chalk"] .modal {
+  background: var(--bg); background-image: var(--texture); border-radius: 4px 4px 0 0;
+  border-top: 2px solid var(--rule-strong);
+}
+[data-look="chalk"] .modal h2 { font-size: 24px; font-weight: 600; }
+[data-look="chalk"] .field-label { font-family: var(--label); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; }
+[data-look="chalk"] .field-input,
+[data-look="chalk"] .field-textarea,
+[data-look="chalk"] .field-select {
+  border-radius: 2px; border-color: var(--border2); background: var(--input-bg); font-family: var(--item); font-weight: 500; font-size: 16px;
+}
+[data-look="chalk"] .field-input:focus,
+[data-look="chalk"] .field-textarea:focus,
+[data-look="chalk"] .field-select:focus { border-color: var(--rule-strong); }
+[data-look="chalk"] .lock-row { background: transparent; border-color: var(--border2); border-radius: 2px; }
+[data-look="chalk"] .lock-row input[type="checkbox"] { accent-color: var(--accent); }
+[data-look="chalk"] .suggest-name { font-family: var(--dish); font-weight: var(--dish-weight); font-size: 21px; }
+[data-look="chalk"] .suggest-photo { border-radius: 2px; }
+[data-look="chalk"] .suggest-link { border-radius: 2px; color: var(--accent); }
+
+/* ---- Settings ---- */
+[data-look="chalk"] .settings-heading { font-size: 19px; font-weight: 600; }
+[data-look="chalk"] .settings-section .hint { font-family: var(--hand); font-weight: 400; font-size: 14px; }
+[data-look="chalk"] .toggle-row,
+[data-look="chalk"] .sound-option,
+[data-look="chalk"] .look-option { background: transparent; border-color: var(--border2); border-radius: 2px; }
+[data-look="chalk"] .switch { background: var(--row-bg); }
+[data-look="chalk"] .switch:checked { background: var(--accent); }
+[data-look="chalk"] .sound-option.active,
+[data-look="chalk"] .look-option.active { border-color: var(--rule-strong); box-shadow: 0 0 0 1px var(--rule-strong) inset; }
+[data-look="chalk"] .sound-option.active .sound-radio { border-color: var(--accent); background: radial-gradient(circle, var(--accent) 42%, transparent 46%); }
+[data-look="chalk"] .look-name { font-family: var(--dish); font-weight: var(--dish-weight); font-size: 16px; }
+[data-look="chalk"] .look-swatch { border-radius: 2px; }
+[data-look="chalk"] .chip { background: transparent; border-color: var(--border2); border-radius: 2px; font-family: var(--label); }
+[data-look="chalk"] .danger-zone { border-top: 1px solid var(--rule); }
+
+/* ---- Bottom nav ---- */
+[data-look="chalk"] .bottom-nav {
+  background: var(--bg); background-image: var(--texture); border-top: 3px double var(--rule-strong);
+}
+[data-look="chalk"] body.dark-mode .bottom-nav { bottom: 7px; left: 7px; right: 7px; }
+[data-look="chalk"] .nav-btn { font-family: var(--label); font-weight: 700; font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted2); }
+[data-look="chalk"] .nav-btn.active { color: var(--accent); }
+
+/* ---- Misc ---- */
+[data-look="chalk"] .toast { background: var(--ink); color: var(--on-ink); border-radius: 2px; font-family: var(--label); }
+[data-look="chalk"] .loading-spinner { border-top-color: var(--accent); }
+[data-look="chalk"] .empty-state { font-family: var(--item); font-style: italic; font-size: 17px; }
+[data-look="chalk"] .confirm-message { font-family: var(--item); font-size: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-look="chalk"] .day-row.pop-in,
+  [data-look="chalk"] .day-row.writing .day-meal,
+  [data-look="chalk"] .day-row.writing .day-meal-btn::before { animation: none; }
+}
