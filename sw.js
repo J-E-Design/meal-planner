@@ -1,6 +1,6 @@
-const CACHE = "meal-planner-v14";
+const CACHE = "meal-planner-v15";
 const FILES = [
-  "./", "./index.html", "./styles.css", "./app.js", "./manifest.json", "./looks/fridge.css", "./looks/chalk.css", "./icon-192.png", "./icon-512.png",
+  "./", "./index.html", "./styles.css", "./app.js", "./manifest.json", "./looks/fridge.css", "./looks/chalk.css", "./looks/calm.css", "./icon-192.png", "./icon-512.png",
   "./nom.mp3", "./cowabunga.mp3", "./om_nom_nom_nom_nom.mp3",
 ];
 

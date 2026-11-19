@@ -65,7 +65,7 @@ const LOOKS = [
   { id: "classic", label: "Classic", desc: "The original", swatch: ["#FFF6EA", "#F5B942", "#E85D3D", "#5B7F4B"], themeColor: "#E85D3D", available: true, shuffle: "classic" },
   { id: "fridge", label: "Fridge door", desc: "Paper notes & magnets", swatch: ["#EFE8DC", "#FFFDF7", "#D94F30", "#2F7D6B"], themeColor: "#EFE8DC", themeColorDark: "#1F1C19", available: true, shuffle: "reel" },
   { id: "chalk", label: "Café chalkboard", desc: "This week's menu", swatch: ["#F4EFE4", "#1F1B16", "#A8322D", "#1F2621"], themeColor: "#F4EFE4", themeColorDark: "#1F2621", available: true, shuffle: "write", noEmoji: true },
-  { id: "calm", label: "Calm modern", desc: "Big, bold & clean", swatch: ["#F7F7F5", "#111111", "#FF5A36", "#E8E8E4"], available: false },
+  { id: "calm", label: "Calm modern", desc: "Big, bold & clean", swatch: ["#F7F7F5", "#111111", "#FF5A36", "#E8E8E4"], themeColor: "#F7F7F5", themeColorDark: "#0E0E0E", available: true, shuffle: "cards" },
 ];
 const LOOK_KEY = "mp_look";
 function currentLook() {
@@ -99,19 +99,24 @@ function mealLabel(name) {
 function animateDays(indices) {
   const kind = currentLook().shuffle;
   if (kind === "reel") reelDays(indices);
-  else if (kind === "write") writeDays(indices);
+  else if (kind === "write") staggerDays(indices, "writing", 700, 160);
+  else if (kind === "cards") {
+    staggerDays(indices, "dealing", 600, 70);
+    try { if (navigator.vibrate) navigator.vibrate([10, 40, 10]); } catch (e) {}
+  }
 }
-// Menu being written out: each line wipes in, one after another (CSS does the drawing).
-function writeDays(indices) {
+// Add a CSS animation class to each day in turn; the look's CSS does the drawing,
+// using --n (the day's position in the sequence) for its delay.
+function staggerDays(indices, cls, baseMs, stepMs) {
   if (prefersReducedMotion()) return;
   indices.forEach((i, n) => {
     const row = document.getElementById("day-" + i);
     if (!row) return;
     row.style.setProperty("--n", n);
-    row.classList.remove("writing");
+    row.classList.remove(cls);
     void row.offsetWidth; // restart the animation
-    row.classList.add("writing");
-    setTimeout(() => row.classList.remove("writing"), 700 + n * 160);
+    row.classList.add(cls);
+    setTimeout(() => row.classList.remove(cls), baseMs + n * stepMs);
   });
 }
 
