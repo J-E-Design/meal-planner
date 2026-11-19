@@ -42,6 +42,21 @@
   <!-- PLAN VIEW -->
   <div class="view active" id="planView">
     <button class="tonight-card" id="tonightCard" type="button"></button>
+    <div class="week-nav" role="group" aria-label="Choose a week">
+      <button type="button" class="week-nav-btn" id="weekPrev" aria-label="Previous week">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="week-nav-label" aria-live="polite">
+        <strong id="weekNavTitle">This week</strong>
+        <span id="weekNavDates"></span>
+        <span class="week-dots" id="weekDots">
+          <button type="button" data-week="0" aria-label="This week"></button><button type="button" data-week="1" aria-label="Next week"></button><button type="button" data-week="2" aria-label="In 2 weeks"></button><button type="button" data-week="3" aria-label="In 3 weeks"></button>
+        </span>
+      </div>
+      <button type="button" class="week-nav-btn" id="weekNext" aria-label="Next week">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+    </div>
     <div class="shuffle-wrap">
       <button class="shuffle-btn" id="shuffleBtn">
         <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.5 9a9 9 0 0114.85-3.36L23 10M1 14l4.65 4.36A9 9 0 0020.5 15"/></svg>
@@ -60,7 +75,8 @@
   <!-- SHOPPING LIST VIEW -->
   <div class="view" id="shopView">
     <div class="shop-card">
-      <p class="hint">Ingredients for everything planned this week.</p>
+      <p class="hint" id="shopHint">Ingredients for everything planned this week.</p>
+      <div class="chip-row shop-weeks" id="shopWeeks" hidden></div>
       <form class="shop-add" id="shopAddForm" autocomplete="off">
         <input class="shop-add-input" id="shopAddInput" list="shopPastItems" maxlength="80" enterkeyhint="done"
                placeholder="Add something else — milk, bin bags…" aria-label="Add an item to the shopping list">
@@ -115,6 +131,13 @@
 
   <!-- SETTINGS VIEW -->
   <div class="view" id="settingsView">
+    <div class="settings-section">
+      <h2 class="settings-heading">👋 This phone</h2>
+      <div class="toggle-row">
+        <span class="who-current">Belongs to <strong id="whoCurrent">—</strong></span>
+        <button type="button" class="btn-secondary who-change" id="whoChangeBtn">Change</button>
+      </div>
+    </div>
     <div class="settings-section">
       <h2 class="settings-heading">🎨 Look</h2>
       <p class="hint">Just for this phone — you can each pick your own.</p>
@@ -199,6 +222,9 @@
     <select class="field-select" id="dayQuickPick">
       <option value="">Choose a saved meal…</option>
     </select>
+    <label class="field-label" for="dayNoteInput">Note for this day (optional)</label>
+    <input class="field-input" id="dayNoteInput" maxlength="80" placeholder="e.g. Football — eat at 7">
+
     <div class="lock-row">
       <input type="checkbox" id="dayEatingOutCheckbox">
       <label for="dayEatingOutCheckbox">🥡 Eating out / takeaway
@@ -226,6 +252,20 @@
     <div class="modal-actions">
       <button class="btn-secondary" id="suggestAnotherBtn">Try another</button>
       <button class="btn-primary" id="suggestAddBtn">Add to my meals</button>
+    </div>
+  </div>
+</div>
+
+<!-- Who's this phone? -->
+<div class="modal-overlay" id="whoModalOverlay">
+  <div class="modal">
+    <h2>Who's this phone? 👋</h2>
+    <p class="confirm-message">So the app can say who ticked what, and give you each your own veto. You only need to do this once.</p>
+    <div class="who-options" id="whoOptions"></div>
+    <label class="field-label" for="whoNameInput" id="whoNameLabel">Your name</label>
+    <input class="field-input" id="whoNameInput" maxlength="20" placeholder="Your first name" autocomplete="given-name">
+    <div class="modal-actions">
+      <button class="btn-primary" id="whoSaveBtn">That's me</button>
     </div>
   </div>
 </div>

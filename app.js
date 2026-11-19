@@ -224,14 +224,108 @@ async function saveMeals(m) {
     showToast("Couldn't save your meals — check your connection.");
   }
 }
+// ---- Weeks: today's week plus up to 3 weeks ahead, keyed by the week's Sunday ----
+// "plan" on the server = { weeks: { "2026-11-15": [7 days, Sun..Sat], ... } }.
+// Past weeks are kept (pruned after a year) - they feed "no repeats" and Year in tea.
+const MAX_WEEKS_AHEAD = 3;
+let plan = { weeks: {} };
+let viewOffset = 0; // 0 = this week, 1 = next week, ...
+
+function isoDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function weekStart(offset = 0) {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0); // midday avoids daylight-saving edge cases
+  d.setDate(d.getDate() - d.getDay() + offset * 7);
+  return d;
+}
+function weekKey(offset = 0) { return isoDate(weekStart(offset)); }
+function dayDate(offset, i) { const d = weekStart(offset); d.setDate(d.getDate() + i); return d; }
+function dateKey(offset, i) { return isoDate(dayDate(offset, i)); }
+function emptyWeek() { return Array(7).fill(null); }
+function weekDays(offset) {
+  const w = plan.weeks[weekKey(offset)];
+  return Array.isArray(w) && w.length === 7 ? w : emptyWeek();
+}
+function normalisePlan(v) {
+  const weeks = {};
+  if (v && v.weeks && typeof v.weeks === "object") {
+    for (const [k, w] of Object.entries(v.weeks)) if (/^\d{4}-\d{2}-\d{2}$/.test(k) && Array.isArray(w) && w.length === 7) weeks[k] = w;
+  }
+  return { weeks };
+}
+function prunePlan(p) {
+  const cutoff = new Date(); cutoff.setFullYear(cutoff.getFullYear() - 1);
+  const cut = isoDate(cutoff);
+  for (const k of Object.keys(p.weeks)) if (k < cut) delete p.weeks[k];
+  return p;
+}
+let planChain = Promise.resolve();
+let planSavesPending = 0;
+function savePlanWeek(key, days) {
+  plan.weeks[key] = days;
+  planSavesPending++;
+  // Read the latest copy first so the two phones editing different weeks don't overwrite each other.
+  planChain = planChain.then(async () => {
+    try {
+      const latest = normalisePlan(await stateGet("plan", null));
+      latest.weeks[key] = plan.weeks[key];
+      prunePlan(latest);
+      await stateSet("plan", latest);
+      for (const [k, w] of Object.entries(latest.weeks)) if (k !== key) plan.weeks[k] = w;
+      if (key === weekKey(0)) stateSet("week", plan.weeks[key]).catch(() => {}); // keep the old field current too
+    } catch (e) {
+      showToast("Couldn't save your week — check your connection.");
+    } finally {
+      planSavesPending--;
+    }
+  });
+  return planChain;
+}
 async function saveWeek(w) {
   week = w;
-  try {
-    await stateSet("week", w);
-  } catch (e) {
-    showToast("Couldn't save your week — check your connection.");
-  }
+  return savePlanWeek(weekKey(viewOffset), w);
 }
+
+// ---- Notes on a day: { "2026-11-19": "Football - eat at 7" } ----
+let notes = {};
+let notesChain = Promise.resolve();
+function saveNote(date, text) {
+  const clean = (text || "").trim();
+  if (clean) notes[date] = clean; else delete notes[date];
+  notesChain = notesChain.then(async () => {
+    try {
+      const latest = await stateGet("notes", {});
+      const next = latest && typeof latest === "object" && !Array.isArray(latest) ? latest : {};
+      if (clean) next[date] = clean; else delete next[date];
+      const cutoff = isoDate(new Date(Date.now() - 60 * 864e5));
+      for (const k of Object.keys(next)) if (k < cutoff) delete next[k];
+      await stateSet("notes", next);
+      notes = next;
+    } catch (e) {
+      showToast("Couldn't save that note — check your connection.");
+    }
+  });
+}
+
+// Refresh the plan and notes when the app comes back to the front (the other phone may have changed them).
+async function refreshPlan() {
+  if (planSavesPending > 0 || document.querySelector(".modal-overlay.active")) return;
+  try {
+    const [p, n] = await Promise.all([stateGet("plan", null), stateGet("notes", {})]);
+    if (planSavesPending > 0) return;
+    const nextPlan = normalisePlan(p);
+    const nextNotes = n && typeof n === "object" && !Array.isArray(n) ? n : {};
+    if (JSON.stringify(nextPlan) !== JSON.stringify(plan) || JSON.stringify(nextNotes) !== JSON.stringify(notes)) {
+      plan = nextPlan;
+      notes = nextNotes;
+      week = weekDays(viewOffset);
+      renderWeek();
+    }
+  } catch (e) { /* offline - keep what we have */ }
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshPlan(); });
 async function saveSettings(s) {
   settings = s;
   try {
@@ -342,16 +436,20 @@ function applySettings() {
 
 async function init() {
   try {
-    const [remoteMeals, remoteWeek, remoteSettings, remoteHistory] = await Promise.all([
+    const [remoteMeals, remoteWeek, remoteSettings, remoteHistory, remotePlan, remoteNotes] = await Promise.all([
       stateGet("meals", []),
       stateGet("week", Array(7).fill(null)),
       stateGet("settings", DEFAULT_SETTINGS),
       stateGet("history", []),
+      stateGet("plan", null).catch(() => null),
+      stateGet("notes", {}).catch(() => ({})),
     ]);
     meals = remoteMeals;
     week = remoteWeek;
     settings = { ...DEFAULT_SETTINGS, ...remoteSettings };
     history = remoteHistory;
+    plan = normalisePlan(remotePlan);
+    notes = remoteNotes && typeof remoteNotes === "object" && !Array.isArray(remoteNotes) ? remoteNotes : {};
 
     // fresh database: seed it from whatever this device already had saved locally
     if (meals.length === 0) {
@@ -366,6 +464,12 @@ async function init() {
         await stateSet("week", week);
       }
     }
+    // First run with dated weeks: the existing single week becomes this week.
+    if (!plan.weeks[weekKey(0)] && Array.isArray(week) && week.some(d => d !== null)) {
+      savePlanWeek(weekKey(0), week);
+    }
+    viewOffset = 0;
+    week = weekDays(0);
   } catch (e) {
     showLoadError();
     return;
@@ -377,6 +481,7 @@ async function init() {
   renderWeek();
   renderMeals();
   renderSettingsView();
+  if (!getMe()) setTimeout(openWhoModal, 600);
 }
 document.getElementById("retryBtn").addEventListener("click", () => {
   setBodyState("state-loading");
@@ -403,20 +508,30 @@ function pickWeek() {
   const slotsToFill = [];
   result.forEach((d, i) => { if (!d) slotsToFill.push(i); });
 
-  // avoid repeating meals from the last couple of shuffles where possible
-  const recentNames = new Set(history.flat());
+  // avoid repeating meals from the two weeks before this one (and anything planned the week after)
+  const recentNames = new Set([
+    ...[-2, -1, 1].flatMap(o => weekDays(viewOffset + o)).filter(d => d && !d.eatingOut).map(d => d.text),
+    ...(viewOffset === 0 ? history.flat() : []),
+  ]);
 
+  // Favourites sit in the deck several times (more likely to come up), but a meal should
+  // only land once per week unless there genuinely aren't enough different meals.
+  const used = new Set(result.filter(Boolean).map(d => d.text));
   let deck = [];
-  let lastPicked = null;
   slotsToFill.forEach((i) => {
-    if (deck.length === 0) {
-      deck = weightedDeck(recentNames).sort(() => Math.random() - 0.5);
-      if (lastPicked && deck[0] === lastPicked && deck.length > 1) {
-        [deck[0], deck[1]] = [deck[1], deck[0]];
-      }
+    if (deck.length === 0) deck = weightedDeck(recentNames).sort(() => Math.random() - 0.5);
+    let idx = -1;
+    for (let j = deck.length - 1; j >= 0; j--) if (!used.has(deck[j])) { idx = j; break; }
+    if (idx === -1) {
+      // everything left in the deck is already this week - try the full meal list before repeating
+      const fresh = meals.map(m => m.name).filter(n => !used.has(n));
+      const pick = fresh.length ? fresh[Math.floor(Math.random() * fresh.length)] : deck.pop();
+      used.add(pick);
+      result[i] = { text: pick, locked: false };
+      return;
     }
-    const pick = deck.pop();
-    lastPicked = pick;
+    const pick = deck.splice(idx, 1)[0];
+    used.add(pick);
     result[i] = { text: pick, locked: false };
   });
   return result;
@@ -426,24 +541,29 @@ function renderWeek() {
   const list = document.getElementById("weekList");
   list.innerHTML = "";
   const hasPlan = week.some(d => d !== null);
-  document.getElementById("shuffleLabel").textContent = hasPlan ? "Shuffle again" : "Plan my week";
+  const weekWord = ["this week", "next week", "that week", "that week"][viewOffset];
+  document.getElementById("shuffleLabel").textContent = hasPlan ? "Shuffle again" : `Plan ${weekWord}`;
   document.getElementById("shuffleBtn").disabled = meals.length === 0;
+  renderWeekNav();
 
-  const todayIndex = new Date().getDay();
+  const todayIndex = viewOffset === 0 ? new Date().getDay() : -1;
   DAYS.forEach((day, i) => {
     const d = week[i];
+    const date = dayDate(viewOffset, i);
+    const note = notes[isoDate(date)];
     const row = document.createElement("div");
-    row.className = "day-row pop-in" + (d && d.locked ? " locked" : "") + (d && d.eatingOut ? " eating-out" : "") + (i === todayIndex ? " today" : "");
+    row.className = "day-row pop-in" + (d && d.locked ? " locked" : "") + (d && d.eatingOut ? " eating-out" : "") + (i === todayIndex ? " today" : "") + (note ? " has-note" : "");
     row.style.animationDelay = (i * 0.05) + "s";
     row.id = "day-" + i;
     const col = DAY_COLORS[i];
     row.style.setProperty("--day-bg", col.bg);
     row.style.setProperty("--day-fg", col.fg);
     row.innerHTML = `
-      <div class="day-badge">${day}</div>
+      <div class="day-badge"><span class="day-name">${day}</span><span class="day-date">${date.getDate()}</span></div>
       <button class="day-meal-btn" data-open="${i}">
         <div class="day-meal ${d ? "" : "empty"}">${d ? mealLabel(d.text) : (currentLook().noEmoji ? "To be decided" : "🎲 Not decided yet")}</div>
         ${d && d.eatingOut ? `<div class="lock-tag eating-out-tag">🥡 Eating out</div>` : (d && d.locked ? `<div class="lock-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a5 5 0 00-5 5v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1V7a5 5 0 00-5-5zm-3 8V7a3 3 0 016 0v3z"/></svg>Locked</div>` : "")}
+        ${note ? `<div class="day-note">${currentLook().noEmoji ? "" : "📝 "}${escapeHtml(note)}</div>` : ""}
       </button>
       <div class="day-actions">
         ${(d && !d.locked) ? `<button class="reroll-btn" data-reroll="${i}" aria-label="Reroll ${day}">
@@ -469,8 +589,71 @@ function renderWeek() {
   list.querySelectorAll(".day-row").forEach((row, i) => enableDayDrag(row, i));
 
   renderTonight();
+  renderShopWeeks();
   renderShoppingList();
 }
+
+// ---- Week switcher: this week + up to 3 weeks ahead ----
+const SHORT_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function weekRangeLabel(offset) {
+  const a = dayDate(offset, 0), b = dayDate(offset, 6);
+  return a.getMonth() === b.getMonth()
+    ? `${a.getDate()}–${b.getDate()} ${SHORT_MONTHS[b.getMonth()]}`
+    : `${a.getDate()} ${SHORT_MONTHS[a.getMonth()]} – ${b.getDate()} ${SHORT_MONTHS[b.getMonth()]}`;
+}
+function weekTitle(offset) { return ["This week", "Next week", "In 2 weeks", "In 3 weeks"][offset]; }
+function renderWeekNav() {
+  document.getElementById("weekNavTitle").textContent = weekTitle(viewOffset);
+  document.getElementById("weekNavDates").textContent = weekRangeLabel(viewOffset);
+  document.getElementById("weekPrev").disabled = viewOffset === 0;
+  document.getElementById("weekNext").disabled = viewOffset === MAX_WEEKS_AHEAD;
+  document.getElementById("planView").classList.toggle("future-week", viewOffset > 0);
+  document.querySelectorAll("#weekDots [data-week]").forEach(dot => {
+    const o = parseInt(dot.dataset.week);
+    dot.classList.toggle("active", o === viewOffset);
+    dot.classList.toggle("planned", weekDays(o).some(d => d));
+  });
+}
+function goToWeek(offset) {
+  viewOffset = Math.max(0, Math.min(MAX_WEEKS_AHEAD, offset));
+  week = weekDays(viewOffset);
+  renderWeek();
+}
+document.getElementById("weekPrev").addEventListener("click", () => goToWeek(viewOffset - 1));
+document.getElementById("weekNext").addEventListener("click", () => goToWeek(viewOffset + 1));
+document.getElementById("weekDots").addEventListener("click", (e) => {
+  const dot = e.target.closest("[data-week]");
+  if (dot) goToWeek(parseInt(dot.dataset.week));
+});
+
+// ---- Which week(s) the shopping list covers ----
+let shopWeeks = [0];
+function renderShopWeeks() {
+  const box = document.getElementById("shopWeeks");
+  const options = [0, 1, 2, 3].filter(o => o === 0 || weekDays(o).some(d => d));
+  const hint = document.getElementById("shopHint");
+  if (options.length === 1) {
+    box.hidden = true; shopWeeks = [0];
+    hint.textContent = "Ingredients for everything planned this week.";
+    return;
+  }
+  box.hidden = false;
+  hint.textContent = "Ingredients for everything planned in:";
+  shopWeeks = shopWeeks.filter(o => options.includes(o));
+  if (!shopWeeks.length) shopWeeks = [0];
+  box.innerHTML = options.map(o =>
+    `<button type="button" class="chip shop-week-chip${shopWeeks.includes(o) ? " active" : ""}" data-shop-week="${o}" aria-pressed="${shopWeeks.includes(o)}">${weekTitle(o)}</button>`
+  ).join("");
+}
+document.getElementById("shopWeeks").addEventListener("click", (e) => {
+  const chip = e.target.closest("[data-shop-week]");
+  if (!chip) return;
+  const o = parseInt(chip.dataset.shopWeek);
+  shopWeeks = shopWeeks.includes(o) ? shopWeeks.filter(x => x !== o) : [...shopWeeks, o].sort();
+  if (!shopWeeks.length) shopWeeks = [o];
+  renderShopWeeks();
+  renderShoppingList();
+});
 
 // ---- Drag a day (by its day badge) onto another day to swap them ----
 function enableDayDrag(row, i) {
@@ -526,8 +709,9 @@ const FULL_DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","
 function renderTonight() {
   const card = document.getElementById("tonightCard");
   const i = new Date().getDay();
-  const d = week[i];
-  const next = week[(i + 1) % 7];
+  const d = weekDays(0)[i];
+  const next = i === 6 ? weekDays(1)[0] : weekDays(0)[i + 1];
+  const note = notes[dateKey(0, i)];
   const meal = d && !d.eatingOut ? mealByName(d.text) : null;
   const ingCount = meal ? (meal.ingredients || []).length : 0;
   let main, sub;
@@ -541,6 +725,7 @@ function renderTonight() {
     main = `<span class="tonight-emoji">${getMealEmoji(d.text)}</span><span class="tonight-meal">${escapeHtml(d.text)}</span>`;
     sub = ingCount ? `${ingCount} ingredient${ingCount === 1 ? "" : "s"}` : "";
   }
+  if (note) sub = (sub ? sub + " · " : "") + escapeHtml(note);
   card.innerHTML = `
     <span class="tonight-magnet" aria-hidden="true"></span>
     <span class="tonight-label">Tonight · ${FULL_DAYS[i]}</span>
@@ -550,7 +735,17 @@ function renderTonight() {
   `;
   card.setAttribute("aria-label", `Tonight: ${d ? d.text : "nothing planned"}. Tap to edit.`);
 }
-document.getElementById("tonightCard").addEventListener("click", () => openDayModal(new Date().getDay()));
+document.getElementById("tonightCard").addEventListener("click", () => {
+  if (viewOffset !== 0) goToWeek(0);
+  openDayModal(new Date().getDay());
+});
+
+// Put a week back exactly as it was (used by Undo), even if you've since switched weeks.
+function restoreWeek(offset, days) {
+  savePlanWeek(weekKey(offset), days);
+  if (offset === viewOffset) week = days;
+  renderWeek();
+}
 
 function toggleLock(i) {
   if (!week[i]) return; // nothing to lock
@@ -567,19 +762,19 @@ function shuffleAll() {
   playNomSound();
   setTimeout(() => {
     const before = week;
+    const offset = viewOffset;
     const beforeHistory = history;
     const beforeTicks = shopView().ticks;
+    const affectsShop = shopWeeks.includes(offset);
     week = pickWeek();
     saveWeek(week);
-    clearShopTicks(); // new week, new shop
-    saveHistory([week.filter(d => d && !d.eatingOut).map(d => d.text), ...history].slice(0, 2));
-    showToast("New week planned", {
+    if (affectsShop) clearShopTicks(); // new week, new shop
+    if (offset === 0) saveHistory([week.filter(d => d && !d.eatingOut).map(d => d.text), ...history].slice(0, 2));
+    showToast(`${weekTitle(offset)} planned`, {
       undo: () => {
-        week = before;
-        saveWeek(week);
-        saveHistory(beforeHistory);
-        if (beforeTicks.length) queueShopOp({ type: "setTicks", keys: beforeTicks });
-        renderWeek();
+        restoreWeek(offset, before);
+        if (offset === 0) saveHistory(beforeHistory);
+        if (affectsShop && beforeTicks.length) queueShopOp({ type: "setTicks", keys: beforeTicks });
       },
     });
     renderWeek();
@@ -611,17 +806,17 @@ function rerollDay(i) {
 
 function resetWeek() {
   const before = week;
+  const offset = viewOffset;
   const beforeTicks = shopView().ticks;
+  const affectsShop = shopWeeks.includes(offset);
   week = week.map(d => d && (d.locked || d.eatingOut) ? d : null);
   saveWeek(week);
-  clearShopTicks();
+  if (affectsShop) clearShopTicks();
   renderWeek();
-  showToast("Week cleared (locked days kept)", {
+  showToast(`${weekTitle(offset)} cleared (locked days kept)`, {
     undo: () => {
-      week = before;
-      saveWeek(week);
-      if (beforeTicks.length) queueShopOp({ type: "setTicks", keys: beforeTicks });
-      renderWeek();
+      restoreWeek(offset, before);
+      if (affectsShop && beforeTicks.length) queueShopOp({ type: "setTicks", keys: beforeTicks });
     },
   });
 }
@@ -655,7 +850,7 @@ function aisleFor(text) {
 
 function buildShoppingList(view = shopView()) {
   const seen = new Map();
-  week.forEach(d => {
+  shopWeeks.flatMap(o => weekDays(o)).forEach(d => {
     if (!d || d.eatingOut) return;
     const meal = mealByName(d.text);
     if (!meal) return;
@@ -904,8 +1099,10 @@ function populateQuickPick() {
 function openDayModal(i) {
   editingDayIndex = i;
   const d = week[i];
-  document.getElementById("dayModalTitle").textContent = "Edit " + DAYS[i];
+  const date = dayDate(viewOffset, i);
+  document.getElementById("dayModalTitle").textContent = `${FULL_DAYS[i]} ${date.getDate()} ${SHORT_MONTHS[date.getMonth()]}`;
   document.getElementById("dayTextInput").value = d ? d.text : "";
+  document.getElementById("dayNoteInput").value = notes[isoDate(date)] || "";
   document.getElementById("dayLockCheckbox").checked = !!(d && d.locked);
   document.getElementById("dayEatingOutCheckbox").checked = !!(d && d.eatingOut);
   populateQuickPick();
@@ -932,13 +1129,15 @@ document.getElementById("dayModalOverlay").addEventListener("click", (e) => {
 document.getElementById("dayClearBtn").addEventListener("click", () => {
   if (editingDayIndex === null) return;
   const i = editingDayIndex;
+  const offset = viewOffset;
+  const beforeWeek = week.slice();
   const before = week[i];
   week[i] = null;
   saveWeek(week);
   closeDayModal();
   renderWeek();
   if (before) {
-    showToast(`Cleared ${FULL_DAYS[i]}`, { undo: () => { week[i] = before; saveWeek(week); renderWeek(); } });
+    showToast(`Cleared ${FULL_DAYS[i]}`, { undo: () => restoreWeek(offset, beforeWeek) });
   }
 });
 document.getElementById("daySaveBtn").addEventListener("click", () => {
@@ -952,6 +1151,9 @@ document.getElementById("daySaveBtn").addEventListener("click", () => {
     week[editingDayIndex] = { text, locked, eatingOut };
   }
   saveWeek(week);
+  const date = dateKey(viewOffset, editingDayIndex);
+  const note = document.getElementById("dayNoteInput").value.trim();
+  if (note !== (notes[date] || "")) saveNote(date, note);
   closeDayModal();
   renderWeek();
 });
@@ -1019,16 +1221,30 @@ function toggleFavourite(id) {
   renderMeals();
 }
 
+// Apply a change to every day of this week and the weeks ahead; returns what they were (for Undo).
+function mapUpcomingWeeks(fn) {
+  const before = {};
+  for (let o = 0; o <= MAX_WEEKS_AHEAD; o++) {
+    const days = weekDays(o);
+    const next = days.map(fn);
+    if (next.some((d, i) => d !== days[i])) {
+      before[o] = days;
+      savePlanWeek(weekKey(o), next);
+      if (o === viewOffset) week = next;
+    }
+  }
+  return before;
+}
+function restoreUpcomingWeeks(before) {
+  for (const [o, days] of Object.entries(before)) restoreWeek(parseInt(o), days);
+}
+
 function deleteMeal(id) {
   const meal = mealById(id);
   const beforeMeals = meals;
-  const beforeWeek = week;
   meals = meals.filter(m => m.id !== id);
   saveMeals(meals);
-  if (meal) {
-    week = week.map(d => (d && d.text === meal.name) ? null : d);
-    saveWeek(week);
-  }
+  const beforeWeeks = meal ? mapUpcomingWeeks(d => (d && d.text === meal.name) ? null : d) : {};
   renderMeals();
   renderWeek();
   if (meal) {
@@ -1036,10 +1252,8 @@ function deleteMeal(id) {
       undo: () => {
         meals = beforeMeals;
         saveMeals(meals);
-        week = beforeWeek;
-        saveWeek(week);
+        restoreUpcomingWeeks(beforeWeeks);
         renderMeals();
-        renderWeek();
       },
     });
   }
@@ -1082,8 +1296,7 @@ document.getElementById("mealSaveBtn").addEventListener("click", () => {
     meal.name = name;
     meal.ingredients = ingredients;
     if (oldName && oldName !== name) {
-      week = week.map(d => (d && d.text === oldName) ? { ...d, text: name } : d);
-      saveWeek(week);
+      mapUpcomingWeeks(d => (d && d.text === oldName) ? { ...d, text: name } : d);
     }
   } else {
     meals.push({ id: uid(), name, ingredients, sourceUrl: editingMealSourceUrl || undefined });
@@ -1306,6 +1519,49 @@ function renderCategoryChips() {
   });
 }
 
+// ---- Who's this phone? (stored on the phone; the list of names is shared in settings) ----
+const ME_KEY = "mp_me";
+function getMe() { try { return localStorage.getItem(ME_KEY) || ""; } catch (e) { return ""; } }
+function people() { return Array.isArray(settings.people) ? settings.people.filter(p => typeof p === "string" && p) : []; }
+function otherPerson() { return people().find(p => p !== getMe()) || ""; }
+function openWhoModal() {
+  const names = people();
+  const opts = document.getElementById("whoOptions");
+  opts.innerHTML = names.map(n => `<button type="button" class="chip who-chip${n === getMe() ? " active" : ""}" data-who="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join("");
+  document.getElementById("whoNameLabel").textContent = names.length ? "Or type a different name" : "Your name";
+  document.getElementById("whoNameInput").value = "";
+  document.getElementById("whoModalOverlay").classList.add("active");
+}
+function setMe(name) {
+  const clean = name.trim().slice(0, 20);
+  if (!clean) return;
+  try { localStorage.setItem(ME_KEY, clean); } catch (e) {}
+  if (!people().includes(clean)) {
+    settings.people = [...people(), clean].slice(-6);
+    saveSettings(settings);
+  }
+  document.getElementById("whoModalOverlay").classList.remove("active");
+  renderWho();
+}
+function renderWho() { document.getElementById("whoCurrent").textContent = getMe() || "not set"; }
+document.getElementById("whoOptions").addEventListener("click", (e) => {
+  const chip = e.target.closest("[data-who]");
+  if (chip) setMe(chip.dataset.who);
+});
+document.getElementById("whoSaveBtn").addEventListener("click", () => {
+  const typed = document.getElementById("whoNameInput").value;
+  if (typed.trim()) setMe(typed);
+  else document.getElementById("whoNameInput").focus();
+});
+document.getElementById("whoNameInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("whoSaveBtn").click();
+});
+document.getElementById("whoChangeBtn").addEventListener("click", openWhoModal);
+document.getElementById("whoModalOverlay").addEventListener("click", (e) => {
+  // Only dismissable by tapping outside once a name is set
+  if (e.target.id === "whoModalOverlay" && getMe()) e.target.classList.remove("active");
+});
+
 function renderLookOptions() {
   const container = document.getElementById("lookOptions");
   const active = currentLook().id;
@@ -1323,6 +1579,7 @@ function renderLookOptions() {
 }
 
 function renderSettingsView() {
+  renderWho();
   renderLookOptions();
   document.getElementById("muteToggle").checked = !!settings.muted;
   document.getElementById("confettiToggle").checked = settings.confetti !== false;
@@ -1346,13 +1603,19 @@ document.getElementById("darkModeToggle").addEventListener("change", (e) => {
 });
 document.getElementById("resetDataBtn").addEventListener("click", async () => {
   const ok = await showConfirm(
-    "This permanently erases all your meals and this week's plan, and starts fresh with the defaults.",
+    "This permanently erases all your meals, every planned week and your notes, and starts fresh with the defaults.",
     { title: "Reset all data?", confirmLabel: "Reset everything" }
   );
   if (!ok) return;
   meals = STARTER_MEALS.map(m => ({ ...m }));
-  week = Array(7).fill(null);
-  await Promise.all([saveMeals(meals), saveWeek(week), saveHistory([])]);
+  plan = { weeks: {} };
+  notes = {};
+  viewOffset = 0;
+  week = emptyWeek();
+  await Promise.all([
+    saveMeals(meals), saveHistory([]),
+    stateSet("plan", plan).catch(() => {}), stateSet("notes", {}).catch(() => {}), stateSet("week", week).catch(() => {}),
+  ]);
   renderMeals();
   renderWeek();
   showToast("All data reset.");

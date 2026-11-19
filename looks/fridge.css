@@ -316,3 +316,14 @@
 [data-look="fridge"] .shop-add-btn { background: var(--primary); border-radius: 50%; box-shadow: 0 3px 0 var(--primary-dark); }
 [data-look="fridge"] .shop-list .shop-item { display: flex; align-items: center; }
 [data-look="fridge"] .toast-action { color: #FFB39C; font-family: var(--round); font-weight: 600; }
+
+/* ---- Weeks ahead, notes, who ---- */
+[data-look="fridge"] .week-nav { margin-top: 22px; }
+[data-look="fridge"] .week-nav-btn { background: var(--paper); border: none; box-shadow: var(--shadow); color: var(--accent); }
+[data-look="fridge"] .week-nav-label strong { font-family: var(--round); font-weight: 700; font-size: 20px; }
+[data-look="fridge"] #weekNavDates { font-family: var(--hand); font-size: 19px; font-weight: 700; color: var(--muted); }
+[data-look="fridge"] .week-dots button.active { background: var(--accent); border-color: var(--accent); }
+[data-look="fridge"] .day-date { font-size: 10px; opacity: 0.9; }
+[data-look="fridge"] .day-note { font-family: var(--hand); font-size: 17px; font-weight: 700; color: var(--primary); }
+[data-look="fridge"] .chip.shop-week-chip.active,
+[data-look="fridge"] .chip.who-chip.active { background: var(--primary); border-color: var(--primary); }

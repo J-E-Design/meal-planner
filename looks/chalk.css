@@ -332,3 +332,18 @@
 [data-look="chalk"] .shop-list li.shop-item .shop-item-text { flex: 1; }
 [data-look="chalk"] .toast-action { color: var(--accent); font-family: var(--label); }
 [data-look="chalk"] body:not(.dark-mode) .toast-action { color: #F0C75E; }
+
+/* ---- Weeks ahead, notes, who ---- */
+[data-look="chalk"] .week-nav-btn { background: transparent; border-color: var(--rule-strong); border-radius: 2px; color: var(--accent); }
+[data-look="chalk"] .week-nav-label strong { font-family: var(--display); font-weight: 600; font-size: 22px; }
+[data-look="chalk"] #weekNavDates { font-family: var(--label); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+[data-look="chalk"] .week-dots button { border-radius: 0; border-color: var(--muted); }
+[data-look="chalk"] .week-dots button.planned { background: var(--muted); }
+[data-look="chalk"] .week-dots button.active { background: var(--accent); border-color: var(--accent); }
+[data-look="chalk"] .day-badge { flex-direction: column; align-items: flex-start; }
+[data-look="chalk"] .day-date { font-size: 11px; letter-spacing: 1px; color: var(--muted); opacity: 1; margin-top: 2px; }
+[data-look="chalk"] .day-row.today .day-badge::after { top: -7px; bottom: -7px; }
+[data-look="chalk"] .day-meal-btn { flex-wrap: wrap; }
+[data-look="chalk"] .day-note { order: 3; flex-basis: 100%; text-align: right; font-family: var(--hand); font-weight: 400; font-size: 14px; color: var(--accent2); margin-top: 0; }
+[data-look="chalk"] .chip.shop-week-chip.active,
+[data-look="chalk"] .chip.who-chip.active { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }

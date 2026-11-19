@@ -308,3 +308,18 @@
 [data-look="calm"] .shop-add-btn { background: var(--ink); color: var(--on-ink); border-radius: 14px; }
 [data-look="calm"] .toast-action { color: var(--accent); font-family: var(--ui); font-weight: 700; text-transform: none; letter-spacing: 0; font-size: 14px; }
 [data-look="calm"] body.dark-mode .toast-action { color: #D9381E; }
+
+/* ---- Weeks ahead, notes, who ---- */
+[data-look="calm"] .week-nav { margin-top: 26px; }
+[data-look="calm"] .week-nav-btn { background: var(--card-bg); border: none; box-shadow: var(--shadow); color: var(--text); }
+[data-look="calm"] body.dark-mode .week-nav-btn { background: var(--row-bg); }
+[data-look="calm"] .week-nav-label strong { font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: -0.5px; }
+[data-look="calm"] #weekNavDates { font-family: var(--ui); font-weight: 500; font-size: 13px; }
+[data-look="calm"] .week-dots button.active { background: var(--accent); border-color: var(--accent); }
+[data-look="calm"] .day-badge { align-items: flex-start; }
+[data-look="calm"] .day-date { font-size: 15px; font-weight: 700; color: var(--text); opacity: 1; letter-spacing: -0.2px; }
+[data-look="calm"] .day-row.today .day-date { color: var(--accent); }
+[data-look="calm"] .day-note { font-family: var(--ui); font-size: 13px; font-weight: 500; color: var(--muted); }
+[data-look="calm"] .toggle-row:only-child { border-radius: 18px; }
+[data-look="calm"] .chip.shop-week-chip.active,
+[data-look="calm"] .chip.who-chip.active { background: var(--ink); color: var(--on-ink); }
