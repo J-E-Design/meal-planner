@@ -109,31 +109,19 @@ const STARTER_MEALS = [
   { id: "m5", name: "Pizza night", ingredients: ["Pizza bases","Mozzarella","Passata","Toppings of choice"] },
 ];
 
-// ---- Server-backed storage (Supabase) ----
-const SUPABASE_URL = "https://fqyacrjfyqfpqbfungqh.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxeWFjcmpmeXFmcHFiZnVuZ3FoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDM3MDIsImV4cCI6MjEwNDI3OTcwMn0.wWaW18-IiNSvHcx8CSD1zKMQMrtY23gtMDUUUqiqKRw";
-const SUPABASE_HEADERS = {
-  apikey: SUPABASE_ANON_KEY,
-  Authorization: "Bearer " + SUPABASE_ANON_KEY,
-};
+// ---- Server-backed storage (PHP + MySQL on our own hosting) ----
+const API_URL = "api/state.php";
 
 async function stateGet(name, fallback) {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/app_state?name=eq.${name}&select=value`,
-    { headers: SUPABASE_HEADERS }
-  );
+  const res = await fetch(`${API_URL}?name=${encodeURIComponent(name)}`, { cache: "no-store" });
   if (!res.ok) throw new Error("GET " + name + " failed: " + res.status);
-  const rows = await res.json();
-  return rows.length ? rows[0].value : fallback;
+  const data = await res.json();
+  return data.value === null || data.value === undefined ? fallback : data.value;
 }
 async function stateSet(name, value) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/app_state`, {
+  const res = await fetch(API_URL, {
     method: "POST",
-    headers: {
-      ...SUPABASE_HEADERS,
-      "Content-Type": "application/json",
-      Prefer: "resolution=merge-duplicates,return=minimal",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, value }),
   });
   if (!res.ok) throw new Error("SET " + name + " failed: " + res.status);

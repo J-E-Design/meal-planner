@@ -1,4 +1,4 @@
-const CACHE = "meal-planner-v10";
+const CACHE = "meal-planner-v11";
 const FILES = [
   "./", "./index.html", "./styles.css", "./app.js", "./manifest.json", "./icon-192.png", "./icon-512.png",
   "./nom.mp3", "./cowabunga.mp3", "./om_nom_nom_nom_nom.mp3",
@@ -36,16 +36,16 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  // The database lives on a different origin (Supabase) and always needs live
-  // data - never cache or fall back to a stale copy. Only manage our own
-  // same-origin app-shell files here.
-  if (new URL(event.request.url).origin !== self.location.origin) {
+  // Only manage our own same-origin app-shell files here. The database API
+  // always needs live data - never cache it or fall back to a stale copy.
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin || url.pathname.includes("/api/")) {
     return;
   }
   event.respondWith(
-    // GitHub Pages serves static files with Cache-Control: max-age=600, so a
-    // plain fetch() can silently return a stale disk-cached response even
-    // though we're "hitting the network" - force a real bypass here.
+    // Hosts often serve static files with a Cache-Control max-age, so a plain
+    // fetch() can silently return a stale disk-cached response even though
+    // we're "hitting the network" - force a real bypass here.
     fetch(event.request, { cache: "no-store" })
       .then((response) => {
         const copy = response.clone();
