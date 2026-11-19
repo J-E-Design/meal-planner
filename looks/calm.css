@@ -323,3 +323,9 @@
 [data-look="calm"] .toggle-row:only-child { border-radius: 18px; }
 [data-look="calm"] .chip.shop-week-chip.active,
 [data-look="calm"] .chip.who-chip.active { background: var(--ink); color: var(--on-ink); }
+
+/* ---- Calendar / defrost ---- */
+[data-look="calm"] .time-input { border: none; border-radius: 10px; background: var(--input-bg); font-family: var(--ui); font-weight: 600; }
+[data-look="calm"] .meal-tag { font-weight: 600; font-size: 12.5px; color: #2F7FD1; }
+[data-look="calm"] .tonight-defrost { color: #fff; opacity: 0.95; }
+[data-look="calm"] .cal-buttons .btn-primary, [data-look="calm"] .cal-buttons .btn-secondary { font-size: 14px; }

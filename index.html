@@ -169,10 +169,37 @@
       </div>
     </div>
 
+    <div class="settings-section">
+      <h2 class="settings-heading">📅 Calendar &amp; reminders</h2>
+      <p class="hint">Put your teas in your phone's calendar — with a reminder before tea, and a 🧊 defrost reminder the night before for meals that need it. Updates itself as you plan.</p>
+      <div class="cal-buttons">
+        <a class="btn-primary" id="calAppleLink" href="#">iPhone / Apple</a>
+        <a class="btn-secondary" id="calGoogleLink" href="#" target="_blank" rel="noopener">Google / Android</a>
+      </div>
+      <div class="toggle-row">
+        <label for="teaTimeInput">Tea time</label>
+        <input type="time" class="time-input" id="teaTimeInput" value="17:30">
+      </div>
+      <div class="toggle-row">
+        <label for="remindSelect">Remind me</label>
+        <select class="time-input" id="remindSelect">
+          <option value="0">No reminder</option>
+          <option value="30">30 min before</option>
+          <option value="60">1 hour before</option>
+          <option value="120">2 hours before</option>
+          <option value="240">4 hours before</option>
+        </select>
+      </div>
+      <div class="toggle-row">
+        <label for="defrostTimeInput">Defrost reminder</label>
+        <input type="time" class="time-input" id="defrostTimeInput" value="20:00">
+      </div>
+      <p class="hint cal-help">iPhone: when subscribing, turn <strong>off</strong> “Remove Alerts” so the reminders come through. Google: reminders for subscribed calendars are set in Google Calendar's settings for “What's for tea?”, and changes can take a few hours to show.</p>
+    </div>
     <div class="settings-section danger-zone">
       <h2 class="settings-heading">⚠️ Danger zone</h2>
       <button class="btn-danger-outline" id="resetDataBtn" style="width:100%;">Reset all data</button>
-      <p class="hint">Erases all meals and this week's plan, and starts fresh with the defaults.</p>
+      <p class="hint">Erases all meals, every planned week and your notes, and starts fresh with the defaults.</p>
     </div>
   </div>
 
@@ -205,6 +232,12 @@
     <input class="field-input" id="mealNameInput" placeholder="e.g. Fish pie">
     <label class="field-label">Ingredients (one per line)</label>
     <textarea class="field-textarea" id="mealIngInput" placeholder="Salmon fillets&#10;Mashed potato&#10;Peas&#10;Cheddar"></textarea>
+    <div class="lock-row meal-defrost-row">
+      <input type="checkbox" id="mealDefrostCheckbox">
+      <label for="mealDefrostCheckbox">🧊 Needs defrosting the night before
+        <span class="sub">You'll get a reminder the evening before (if you've added the calendar)</span>
+      </label>
+    </div>
     <div class="modal-actions">
       <button class="btn-secondary" id="mealCancelBtn">Cancel</button>
       <button class="btn-primary" id="mealSaveBtn">Save meal</button>

@@ -393,6 +393,18 @@
   .who-current { font-size: 14px; font-weight: 600; color: var(--text); }
   .btn-secondary.who-change { flex: none; padding: 8px 14px; }
 
+  /* Calendar settings + defrost */
+  .cal-buttons { display: flex; gap: 8px; margin: 0 0 12px; }
+  .cal-buttons a { text-decoration: none; }
+  .time-input {
+    border: 1.5px solid var(--border); background: var(--input-bg); color: var(--text); border-radius: 10px;
+    padding: 7px 10px; font-family: inherit; font-size: 15px; font-weight: 700; flex-shrink: 0;
+  }
+  .settings-section .hint.cal-help { font-size: 12px; line-height: 1.5; margin-top: 4px; }
+  .cal-help strong { color: var(--text); }
+  .meal-tag { display: inline-block; margin-top: 6px; font-size: 12px; font-weight: 700; color: #3A72B8; }
+  .tonight-defrost { white-space: nowrap; font-weight: 700; color: #3A72B8; }
+
   /* Tonight card - only the newer looks show it */
   .tonight-card { display: none; }
 

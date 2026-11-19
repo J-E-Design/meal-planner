@@ -347,3 +347,8 @@
 [data-look="chalk"] .day-note { order: 3; flex-basis: 100%; text-align: right; font-family: var(--hand); font-weight: 400; font-size: 14px; color: var(--accent2); margin-top: 0; }
 [data-look="chalk"] .chip.shop-week-chip.active,
 [data-look="chalk"] .chip.who-chip.active { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+/* ---- Calendar / defrost ---- */
+[data-look="chalk"] .time-input { border-radius: 2px; background: transparent; border-color: var(--border2); font-family: var(--item); }
+[data-look="chalk"] .meal-tag { font-family: var(--label); font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); }
+[data-look="chalk"] .tonight-defrost { color: var(--accent2); }

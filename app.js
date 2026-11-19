@@ -58,7 +58,8 @@ const SOUND_OPTIONS = [
   { id: "cowabunga.mp3", label: "Cowabunga" },
   { id: "om_nom_nom_nom_nom.mp3", label: "Om Nom Nom Nom Nom" },
 ];
-const DEFAULT_SETTINGS = { sound: "nom.mp3", muted: false, confetti: true, darkMode: false, excludedCategories: [] };
+const DEFAULT_SETTINGS = { sound: "nom.mp3", muted: false, confetti: true, darkMode: false, excludedCategories: [], teaTime: "17:30", remindMins: 60, defrostTime: "20:00" };
+const CALENDAR_FEED = "jamieemerydesign.co.uk/meal-planner/calendar.php";
 
 // ---- Looks (per-device, stored in localStorage so each phone can differ) ----
 const LOOKS = [
@@ -712,6 +713,7 @@ function renderTonight() {
   const d = weekDays(0)[i];
   const next = i === 6 ? weekDays(1)[0] : weekDays(0)[i + 1];
   const note = notes[dateKey(0, i)];
+  const nextMeal = next ? mealByName(next.text) : null;
   const meal = d && !d.eatingOut ? mealByName(d.text) : null;
   const ingCount = meal ? (meal.ingredients || []).length : 0;
   let main, sub;
@@ -731,7 +733,7 @@ function renderTonight() {
     <span class="tonight-label">Tonight · ${FULL_DAYS[i]}</span>
     <span class="tonight-main">${main}</span>
     ${sub ? `<span class="tonight-sub">${sub}</span>` : ""}
-    <span class="tonight-next">Tomorrow: ${next ? mealLabel(next.text) : "not decided yet"}</span>
+    <span class="tonight-next">Tomorrow: ${next ? mealLabel(next.text) : "not decided yet"}${nextMeal && nextMeal.defrost && !next.eatingOut ? ` <span class="tonight-defrost">🧊 defrost tonight</span>` : ""}</span>
   `;
   card.setAttribute("aria-label", `Tonight: ${d ? d.text : "nothing planned"}. Tap to edit.`);
 }
@@ -1198,6 +1200,7 @@ function renderMeals() {
         </div>
       </div>
       <div class="meal-ing">${(m.ingredients||[]).map(escapeHtml).join(", ") || "No ingredients added"}</div>
+      ${m.defrost ? `<div class="meal-tag">🧊 Defrost the night before</div>` : ""}
       ${m.sourceUrl ? `<a href="${escapeHtml(m.sourceUrl)}" target="_blank" rel="noopener" class="meal-recipe-link">📖 Recipe</a>` : ""}
     </div>
   `).join("");
@@ -1268,6 +1271,7 @@ function openMealModal(id, prefill) {
   document.getElementById("mealModalTitle").textContent = id ? "Edit meal" : "Add a meal";
   document.getElementById("mealNameInput").value = meal ? meal.name : (prefill ? prefill.name : "");
   document.getElementById("mealIngInput").value = meal ? (meal.ingredients || []).join("\n") : (prefill ? prefill.ingredients.join("\n") : "");
+  document.getElementById("mealDefrostCheckbox").checked = !!(meal && meal.defrost);
   document.getElementById("mealModalOverlay").classList.add("active");
   document.getElementById("mealNameInput").focus();
 }
@@ -1291,15 +1295,17 @@ document.getElementById("mealSaveBtn").addEventListener("click", () => {
     .split("\n").map(s => s.trim()).filter(Boolean);
   const oldName = editingMealId ? mealById(editingMealId).name : null;
 
+  const defrost = document.getElementById("mealDefrostCheckbox").checked;
   if (editingMealId) {
     const meal = mealById(editingMealId);
     meal.name = name;
     meal.ingredients = ingredients;
+    if (defrost) meal.defrost = true; else delete meal.defrost;
     if (oldName && oldName !== name) {
       mapUpcomingWeeks(d => (d && d.text === oldName) ? { ...d, text: name } : d);
     }
   } else {
-    meals.push({ id: uid(), name, ingredients, sourceUrl: editingMealSourceUrl || undefined });
+    meals.push({ id: uid(), name, ingredients, sourceUrl: editingMealSourceUrl || undefined, ...(defrost ? { defrost: true } : {}) });
   }
   saveMeals(meals);
   closeMealModal();
@@ -1401,6 +1407,8 @@ document.getElementById("restoreFileInput").addEventListener("change", (e) => {
       ingredients: Array.isArray(m.ingredients) ? m.ingredients.filter(i => typeof i === "string") : [],
       favourite: !!m.favourite,
       sourceUrl: typeof m.sourceUrl === "string" ? m.sourceUrl : undefined,
+      ...(m.defrost ? { defrost: true } : {}),
+      ...(typeof m.image === "string" ? { image: m.image } : {}),
     }));
     saveMeals(meals);
     renderMeals();
@@ -1578,8 +1586,25 @@ function renderLookOptions() {
   });
 }
 
+// ---- Calendar feed settings ----
+function renderCalendarSettings() {
+  document.getElementById("calAppleLink").href = "webcal://" + CALENDAR_FEED;
+  document.getElementById("calGoogleLink").href = "https://calendar.google.com/calendar/r?cid=" + encodeURIComponent("webcal://" + CALENDAR_FEED);
+  document.getElementById("teaTimeInput").value = settings.teaTime || DEFAULT_SETTINGS.teaTime;
+  document.getElementById("remindSelect").value = String(settings.remindMins ?? DEFAULT_SETTINGS.remindMins);
+  document.getElementById("defrostTimeInput").value = settings.defrostTime || DEFAULT_SETTINGS.defrostTime;
+}
+for (const [id, key, parse] of [["teaTimeInput", "teaTime", v => v], ["remindSelect", "remindMins", v => parseInt(v)], ["defrostTimeInput", "defrostTime", v => v]]) {
+  document.getElementById(id).addEventListener("change", (e) => {
+    if (e.target.value === "") return;
+    settings[key] = parse(e.target.value);
+    saveSettings(settings);
+  });
+}
+
 function renderSettingsView() {
   renderWho();
+  renderCalendarSettings();
   renderLookOptions();
   document.getElementById("muteToggle").checked = !!settings.muted;
   document.getElementById("confettiToggle").checked = settings.confetti !== false;
