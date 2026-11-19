@@ -338,3 +338,20 @@
 [data-look="fridge"] .meal-thumb { border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); border: 3px solid #fff; transform: rotate(-3deg); }
 [data-look="fridge"] .meal-photo-preview { border-radius: 4px; border: 6px solid #fff; box-shadow: var(--shadow); transform: rotate(-1deg); }
 [data-look="fridge"] .import-status { font-family: var(--hand); font-size: 17px; font-weight: 700; }
+
+/* ---- Ratings, vetoes, swipe & match ---- */
+[data-look="fridge"] .rate-card { background: #FFF6B8; border: none; border-radius: 3px; box-shadow: var(--shadow); transform: rotate(0.8deg); }
+[data-look="fridge"] body.dark-mode .rate-card { background: #4A4326; }
+[data-look="fridge"] .rate-question { font-family: var(--hand); font-size: 22px; font-weight: 700; }
+[data-look="fridge"] .rate-btn { font-family: var(--round); font-weight: 500; background: rgba(255,255,255,0.6); border-color: transparent; }
+[data-look="fridge"] body.dark-mode .rate-btn { background: rgba(0,0,0,0.25); }
+[data-look="fridge"] .veto-tag { font-family: var(--hand); font-size: 16px; font-weight: 700; color: var(--accent); }
+[data-look="fridge"] .swipe-launch { font-family: var(--hand); font-size: 20px; border-color: var(--border2); }
+[data-look="fridge"] .swipe-status { font-family: var(--hand); font-size: 18px; color: var(--primary); }
+[data-look="fridge"] .swipe-card { background: var(--paper); border-radius: 6px; }
+[data-look="fridge"] .swipe-photo { margin: 12px 12px 0; border-radius: 3px; overflow: hidden; }
+[data-look="fridge"] .swipe-name { font-family: var(--round); font-weight: 700; }
+[data-look="fridge"] .swipe-ings { font-family: var(--hand); font-size: 19px; }
+[data-look="fridge"] .swipe-top h2 { font-family: var(--round); font-weight: 700; }
+[data-look="fridge"] .swipe-btn { background: var(--paper); }
+[data-look="fridge"] .modal-overlay.swipe-overlay { background-color: var(--bg); }

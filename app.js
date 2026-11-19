@@ -314,15 +314,24 @@ function saveNote(date, text) {
 async function refreshPlan() {
   if (planSavesPending > 0 || document.querySelector(".modal-overlay.active")) return;
   try {
-    const [p, n] = await Promise.all([stateGet("plan", null), stateGet("notes", {})]);
+    const [p, n, r, s] = await Promise.all([
+      stateGet("plan", null), stateGet("notes", {}),
+      stateGet("ratings", null).catch(() => null), stateGet("swipes", {}).catch(() => ({})),
+    ]);
     if (planSavesPending > 0) return;
     const nextPlan = normalisePlan(p);
     const nextNotes = n && typeof n === "object" && !Array.isArray(n) ? n : {};
-    if (JSON.stringify(nextPlan) !== JSON.stringify(plan) || JSON.stringify(nextNotes) !== JSON.stringify(notes)) {
+    const nextRatings = normaliseRatings(r);
+    const nextSwipes = normaliseSwipes(s);
+    const changed = JSON.stringify([nextPlan, nextNotes, nextRatings, nextSwipes]) !== JSON.stringify([plan, notes, ratings, swipes]);
+    if (changed) {
       plan = nextPlan;
       notes = nextNotes;
+      ratings = nextRatings;
+      swipes = nextSwipes;
       week = weekDays(viewOffset);
       renderWeek();
+      renderMeals();
     }
   } catch (e) { /* offline - keep what we have */ }
 }
@@ -437,13 +446,15 @@ function applySettings() {
 
 async function init() {
   try {
-    const [remoteMeals, remoteWeek, remoteSettings, remoteHistory, remotePlan, remoteNotes] = await Promise.all([
+    const [remoteMeals, remoteWeek, remoteSettings, remoteHistory, remotePlan, remoteNotes, remoteRatings, remoteSwipes] = await Promise.all([
       stateGet("meals", []),
       stateGet("week", Array(7).fill(null)),
       stateGet("settings", DEFAULT_SETTINGS),
       stateGet("history", []),
       stateGet("plan", null).catch(() => null),
       stateGet("notes", {}).catch(() => ({})),
+      stateGet("ratings", null).catch(() => null),
+      stateGet("swipes", {}).catch(() => ({})),
     ]);
     meals = remoteMeals;
     week = remoteWeek;
@@ -451,6 +462,8 @@ async function init() {
     history = remoteHistory;
     plan = normalisePlan(remotePlan);
     notes = remoteNotes && typeof remoteNotes === "object" && !Array.isArray(remoteNotes) ? remoteNotes : {};
+    ratings = normaliseRatings(remoteRatings);
+    swipes = normaliseSwipes(remoteSwipes);
 
     // fresh database: seed it from whatever this device already had saved locally
     if (meals.length === 0) {
@@ -498,12 +511,111 @@ function mealByName(name) {
   return meals.find(m => m.name.trim().toLowerCase() === key) || null;
 }
 
-// Favourite meals appear more often in the shuffle deck; everything else appears once.
-function weightedDeck(excludeNames) {
-  const pool = meals.filter(m => !excludeNames.has(m.name));
-  const usePool = pool.length > 0 ? pool : meals; // don't let exclusion empty the deck entirely
-  return usePool.flatMap(m => Array(m.favourite ? 3 : 1).fill(m.name));
+// ---- How likely each meal is to come up: favourites, your 👍/👎 ratings and this week's swipes ----
+let ratings = { byMeal: {}, asked: {} }; // byMeal: { "Tacos": { up: 2, down: 0 } }, asked: { "2026-11-18": "up" }
+let swipes = {};                          // { "2026-11-22": { "Jamie": { "Tacos": true, "Stew": false } } }
+function normaliseRatings(v) {
+  return {
+    byMeal: v && typeof v.byMeal === "object" && !Array.isArray(v.byMeal) ? v.byMeal : {},
+    asked: v && typeof v.asked === "object" && !Array.isArray(v.asked) ? v.asked : {},
+  };
 }
+function normaliseSwipes(v) { return v && typeof v === "object" && !Array.isArray(v) ? v : {}; }
+function swipeVotes(name, offset = viewOffset) {
+  const byPerson = swipes[weekKey(offset)] || {};
+  let yes = 0, no = 0;
+  for (const votes of Object.values(byPerson)) {
+    if (votes && votes[name] === true) yes++;
+    else if (votes && votes[name] === false) no++;
+  }
+  return { yes, no };
+}
+function mealWeight(name, offset = viewOffset) {
+  const m = mealByName(name);
+  let w = m && m.favourite ? 3 : 1;
+  const r = ratings.byMeal[name];
+  if (r) w *= Math.min(2.5, Math.max(0.35, 1 + 0.35 * ((r.up || 0) - (r.down || 0))));
+  const { yes, no } = swipeVotes(name, offset);
+  if (yes >= 2) w *= 4;                 // a match - you both fancy it
+  else if (yes === 1 && no === 0) w *= 2;
+  else if (no >= 2 && yes === 0) w = 0; // you both said no this week
+  else if (no >= 1 && yes === 0) w *= 0.4;
+  return w;
+}
+function deckCopies(w) { return w <= 0 ? 0 : Math.max(1, Math.round(w * 2)); }
+function weightedDeck(excludeNames) {
+  const allowed = meals.filter(m => mealWeight(m.name) > 0);
+  const pool = allowed.filter(m => !excludeNames.has(m.name));
+  // don't let exclusions empty the deck entirely
+  const usePool = pool.length ? pool : (allowed.length ? allowed : meals);
+  return usePool.flatMap(m => Array(deckCopies(mealWeight(m.name)) || 1).fill(m.name));
+}
+
+// ---- Quick ratings: "How was Tacos last night?" ----
+let ratingsChain = Promise.resolve();
+function weekStartOf(date) { const d = new Date(date); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - d.getDay()); return d; }
+function pendingRating() {
+  for (const back of [1, 2]) {
+    const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - back);
+    const key = isoDate(d);
+    if (ratings.asked[key]) continue;
+    const days = plan.weeks[isoDate(weekStartOf(d))];
+    const entry = Array.isArray(days) ? days[d.getDay()] : null;
+    if (entry && !entry.eatingOut && mealByName(entry.text)) {
+      return { date: key, name: entry.text, when: back === 1 ? "last night" : "on " + FULL_DAYS[d.getDay()] };
+    }
+  }
+  return null;
+}
+function renderRating() {
+  const card = document.getElementById("rateCard");
+  const p = viewOffset === 0 ? pendingRating() : null;
+  card.hidden = !p;
+  if (!p) return;
+  card.dataset.date = p.date;
+  card.dataset.name = p.name;
+  document.getElementById("rateQuestion").innerHTML = `How was the <strong>${escapeHtml(p.name)}</strong> ${p.when}?`;
+}
+function saveRating(date, name, vote) {
+  ratings.asked[date] = vote;
+  if (vote !== "skip") {
+    const r = ratings.byMeal[name] || { up: 0, down: 0 };
+    r[vote]++;
+    ratings.byMeal[name] = r;
+  }
+  renderRating();
+  renderMeals();
+  ratingsChain = ratingsChain.then(async () => {
+    try {
+      const latest = normaliseRatings(await stateGet("ratings", null));
+      if (!latest.asked[date]) {
+        latest.asked[date] = vote;
+        if (vote !== "skip") {
+          const r = latest.byMeal[name] || { up: 0, down: 0 };
+          r[vote] = (r[vote] || 0) + 1;
+          latest.byMeal[name] = r;
+        }
+      }
+      const cutoff = isoDate(new Date(Date.now() - 45 * 864e5));
+      for (const k of Object.keys(latest.asked)) if (k < cutoff) delete latest.asked[k];
+      await stateSet("ratings", latest);
+      ratings = latest;
+      renderMeals();
+    } catch (e) {
+      showToast("Couldn't save that rating — check your connection.");
+    }
+  });
+}
+document.getElementById("rateCard").addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-rate]");
+  if (!btn) return;
+  const card = document.getElementById("rateCard");
+  const { date, name } = card.dataset;
+  const vote = btn.dataset.rate;
+  saveRating(date, name, vote);
+  if (vote === "up") showToast(`Noted — ${name} will come up a bit more often 😋`);
+  if (vote === "down") showToast(`Noted — ${name} will come up less often`);
+});
 
 function pickWeek() {
   const result = week.map(d => d && (d.locked || d.eatingOut) ? d : null);
@@ -565,6 +677,7 @@ function renderWeek() {
       <button class="day-meal-btn" data-open="${i}">
         <div class="day-meal ${d ? "" : "empty"}">${d ? mealLabel(d.text) : (currentLook().noEmoji ? "To be decided" : "🎲 Not decided yet")}</div>
         ${d && d.eatingOut ? `<div class="lock-tag eating-out-tag">🥡 Eating out</div>` : (d && d.locked ? `<div class="lock-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a5 5 0 00-5 5v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1V7a5 5 0 00-5-5zm-3 8V7a3 3 0 016 0v3z"/></svg>Locked</div>` : "")}
+        ${d && d.vetoedBy ? `<div class="veto-tag">${currentLook().noEmoji ? "" : "🙅 "}${escapeHtml(d.vetoedBy)} vetoed ${escapeHtml(d.vetoed || "it")}</div>` : ""}
         ${note ? `<div class="day-note">${currentLook().noEmoji ? "" : "📝 "}${escapeHtml(note)}</div>` : ""}
       </button>
       <div class="day-actions">
@@ -591,6 +704,8 @@ function renderWeek() {
   list.querySelectorAll(".day-row").forEach((row, i) => enableDayDrag(row, i));
 
   renderTonight();
+  renderRating();
+  renderSwipeStatus();
   renderShopWeeks();
   renderShoppingList();
 }
@@ -792,11 +907,8 @@ function rerollDay(i) {
   if (meals.length === 0) return;
   if (week[i] && (week[i].locked || week[i].eatingOut)) return;
   const currentText = week[i] ? week[i].text : null;
-  const others = meals.filter(m => m.name !== currentText);
-  const pool = others.length ? others : meals;
-  const weighted = pool.flatMap(m => Array(m.favourite ? 3 : 1).fill(m));
-  const next = weighted[Math.floor(Math.random() * weighted.length)];
-  week[i] = { text: next.name, locked: false };
+  const next = pickReplacement(i, [currentText]);
+  week[i] = { text: next, locked: false };
   saveWeek(week);
   renderWeek();
   if (currentLook().shuffle !== "classic") { animateDays([i]); return; }
@@ -805,6 +917,210 @@ function rerollDay(i) {
     row.classList.add("wiggle");
     setTimeout(() => row.classList.remove("wiggle"), 380);
   }
+}
+
+// ---- Swipe & match: each of you swipes the meals for a week; matches get picked far more often ----
+let swipeChain = Promise.resolve();
+let swipeDeck = [];
+let swipeOffset = 0;
+function mySwipes(offset = swipeOffset) {
+  const wk = swipes[weekKey(offset)] || {};
+  return wk[getMe()] || {};
+}
+function swipeMatches(offset = viewOffset) {
+  const byPerson = swipes[weekKey(offset)] || {};
+  const names = Object.keys(byPerson);
+  if (names.length < 2) return [];
+  return meals.map(m => m.name).filter(n => names.every(p => byPerson[p] && byPerson[p][n] === true));
+}
+function renderSwipeStatus() {
+  const status = document.getElementById("swipeStatus");
+  const launch = document.getElementById("swipeLaunchBtn");
+  const byPerson = swipes[weekKey(viewOffset)] || {};
+  const me = getMe();
+  const swiped = Object.keys(byPerson).filter(p => Object.keys(byPerson[p] || {}).length);
+  const other = otherPerson();
+  const iDone = me && swiped.includes(me) && meals.every(m => m.name in (byPerson[me] || {}));
+  launch.textContent = iDone ? "💞 Change my swipes" : swiped.includes(me) ? "💞 Finish swiping" : "💞 Swipe to choose together";
+  const matches = swipeMatches(viewOffset);
+  if (swiped.length >= 2) {
+    status.textContent = matches.length
+      ? `${matches.length} match${matches.length === 1 ? "" : "es"} — the shuffle will favour ${matches.length === 1 ? "it" : "them"}`
+      : "No matches yet — the shuffle uses what either of you liked";
+  } else if (swiped.length === 1) {
+    status.textContent = swiped[0] === me ? `Waiting for ${other || "the other phone"} to swipe` : `${swiped[0]} has swiped — your turn!`;
+  } else {
+    status.textContent = "";
+  }
+}
+function openSwipe() {
+  if (!getMe()) { openWhoModal(); return; }
+  swipeOffset = viewOffset;
+  const done = mySwipes();
+  // Unswiped meals first (shuffled), then anything already swiped so you can change your mind
+  const fresh = meals.filter(m => !(m.name in done)).sort(() => Math.random() - 0.5);
+  swipeDeck = fresh.length ? fresh : meals.slice().sort(() => Math.random() - 0.5);
+  document.getElementById("swipeTitle").textContent = `${weekTitle(swipeOffset)}: what do you fancy?`;
+  document.getElementById("swipeOverlay").classList.add("active");
+  renderSwipeCards();
+}
+function closeSwipe() {
+  document.getElementById("swipeOverlay").classList.remove("active");
+  renderWeek();
+}
+function swipeCardHtml(m, isTop) {
+  const ings = (m.ingredients || []).slice(0, 5).join(", ");
+  return `<div class="swipe-card${isTop ? " top" : ""}" data-name="${escapeHtml(m.name)}">
+    <div class="swipe-photo"><span class="swipe-emoji">${getMealEmoji(m.name)}</span>${m.image
+      ? `<img src="${escapeHtml(m.image)}" alt="" referrerpolicy="no-referrer" draggable="false" onerror="this.remove()">` : ""}</div>
+    <div class="swipe-body">
+      <div class="swipe-name">${escapeHtml(m.name)}${m.favourite ? ' <span class="swipe-fav">★</span>' : ""}</div>
+      ${ings ? `<div class="swipe-ings">${escapeHtml(ings)}${(m.ingredients || []).length > 5 ? "…" : ""}</div>` : ""}
+    </div>
+    <span class="swipe-stamp yes">YES!</span><span class="swipe-stamp no">NOPE</span>
+  </div>`;
+}
+function renderSwipeCards() {
+  const stack = document.getElementById("swipeStack");
+  const total = meals.length;
+  const done = Object.keys(mySwipes()).filter(n => mealByName(n)).length;
+  document.getElementById("swipeProgress").textContent = swipeDeck.length ? `${Math.min(done + 1, total)} of ${total}` : "All done!";
+  document.getElementById("swipeActions").hidden = !swipeDeck.length;
+  document.getElementById("swipeHint").hidden = !swipeDeck.length;
+  if (!swipeDeck.length) { stack.innerHTML = swipeSummaryHtml(); return; }
+  // Render the next card underneath, then the top card
+  stack.innerHTML = (swipeDeck[1] ? swipeCardHtml(swipeDeck[1], false) : "") + swipeCardHtml(swipeDeck[0], true);
+  enableCardDrag(stack.querySelector(".swipe-card.top"));
+}
+function swipeSummaryHtml() {
+  const mine = mySwipes();
+  const liked = meals.filter(m => mine[m.name] === true).map(m => m.name);
+  const matches = swipeMatches(swipeOffset);
+  const byPerson = swipes[weekKey(swipeOffset)] || {};
+  const other = Object.keys(byPerson).find(p => p !== getMe() && Object.keys(byPerson[p] || {}).length);
+  let html = `<div class="swipe-summary"><div class="swipe-summary-emoji">${matches.length ? "💞" : "👍"}</div>`;
+  html += `<p class="swipe-summary-line">You fancy <strong>${liked.length}</strong> meal${liked.length === 1 ? "" : "s"} ${weekTitle(swipeOffset).toLowerCase()}.</p>`;
+  if (other) {
+    html += matches.length
+      ? `<p class="swipe-summary-line">You and ${escapeHtml(other)} matched on <strong>${matches.length}</strong>:</p><p class="swipe-matches">${matches.map(escapeHtml).join(" · ")}</p>`
+      : `<p class="swipe-summary-line">No matches with ${escapeHtml(other)} yet — the shuffle will use what either of you liked.</p>`;
+  } else {
+    html += `<p class="swipe-summary-line">Waiting for ${escapeHtml(otherPerson() || "the other phone")} to swipe. The shuffle will use both of your picks.</p>`;
+  }
+  html += `<div class="swipe-summary-actions"><button type="button" class="btn-primary" id="swipeShuffleBtn">Shuffle ${escapeHtml(weekTitle(swipeOffset).toLowerCase())}</button><button type="button" class="btn-secondary" id="swipeRedoBtn">Start again</button></div></div>`;
+  return html;
+}
+document.getElementById("swipeStack").addEventListener("click", (e) => {
+  if (e.target.closest("#swipeShuffleBtn")) {
+    closeSwipe();
+    if (viewOffset !== swipeOffset) goToWeek(swipeOffset);
+    shuffleAll();
+  } else if (e.target.closest("#swipeRedoBtn")) {
+    swipeDeck = meals.slice().sort(() => Math.random() - 0.5);
+    renderSwipeCards();
+  }
+});
+function decideSwipe(yes) {
+  const card = document.querySelector("#swipeStack .swipe-card.top");
+  if (!card || card.classList.contains("leaving")) return;
+  const name = card.dataset.name;
+  card.classList.add("leaving", yes ? "to-yes" : "to-no");
+  saveSwipe(swipeOffset, name, yes);
+  try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {}
+  setTimeout(() => { swipeDeck.shift(); renderSwipeCards(); }, prefersReducedMotion() ? 0 : 220);
+}
+function enableCardDrag(card) {
+  if (!card) return;
+  let startX = 0, startY = 0, dx = 0, dragging = false;
+  card.addEventListener("pointerdown", (e) => {
+    dragging = true; startX = e.clientX; startY = e.clientY; dx = 0;
+    card.setPointerCapture(e.pointerId);
+    card.classList.add("dragging");
+  });
+  card.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    dx = e.clientX - startX;
+    const dy = (e.clientY - startY) * 0.2;
+    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx / 18}deg)`;
+    card.style.setProperty("--yes", String(Math.max(0, Math.min(1, dx / 90))));
+    card.style.setProperty("--no", String(Math.max(0, Math.min(1, -dx / 90))));
+  });
+  const end = () => {
+    if (!dragging) return;
+    dragging = false;
+    card.classList.remove("dragging");
+    if (Math.abs(dx) > 90) { decideSwipe(dx > 0); return; }
+    card.style.transform = "";
+    card.style.setProperty("--yes", "0");
+    card.style.setProperty("--no", "0");
+  };
+  card.addEventListener("pointerup", end);
+  card.addEventListener("pointercancel", end);
+}
+function saveSwipe(offset, name, yes) {
+  const key = weekKey(offset);
+  const me = getMe();
+  swipes[key] = swipes[key] || {};
+  swipes[key][me] = { ...(swipes[key][me] || {}), [name]: yes };
+  swipeChain = swipeChain.then(async () => {
+    try {
+      const latest = normaliseSwipes(await stateGet("swipes", {}));
+      latest[key] = latest[key] || {};
+      latest[key][me] = { ...(latest[key][me] || {}), [name]: yes };
+      const oldest = weekKey(-2);
+      for (const k of Object.keys(latest)) if (k < oldest) delete latest[k];
+      await stateSet("swipes", latest);
+      // keep my latest local votes on top of whatever the other phone has saved
+      latest[key][me] = { ...latest[key][me], ...swipes[key][me] };
+      swipes = latest;
+    } catch (e) {
+      showToast("Couldn't save your swipes — check your connection.");
+    }
+  });
+}
+document.getElementById("swipeLaunchBtn").addEventListener("click", openSwipe);
+document.getElementById("swipeClose").addEventListener("click", closeSwipe);
+document.getElementById("swipeYes").addEventListener("click", () => decideSwipe(true));
+document.getElementById("swipeNo").addEventListener("click", () => decideSwipe(false));
+document.addEventListener("keydown", (e) => {
+  if (!document.getElementById("swipeOverlay").classList.contains("active")) return;
+  if (e.key === "ArrowRight") decideSwipe(true);
+  else if (e.key === "ArrowLeft") decideSwipe(false);
+  else if (e.key === "Escape") closeSwipe();
+});
+
+// Pick one meal for day i: weighted, avoiding the given names and anything else already this week.
+function pickReplacement(i, avoid = []) {
+  const taken = new Set([...avoid, ...week.filter((d, j) => d && j !== i).map(d => d.text)].filter(Boolean));
+  let pool = meals.filter(m => !taken.has(m.name) && mealWeight(m.name) > 0);
+  if (!pool.length) pool = meals.filter(m => !avoid.includes(m.name));
+  if (!pool.length) pool = meals;
+  const deck = pool.flatMap(m => Array(deckCopies(mealWeight(m.name)) || 1).fill(m.name));
+  return deck[Math.floor(Math.random() * deck.length)];
+}
+
+// ---- Vetoes: one each per week. Re-rolls the day and stamps it "vetoed by ..." ----
+function vetoesLeft(person, days = week) {
+  return Math.max(0, 1 - days.filter(d => d && d.vetoedBy === person).length);
+}
+function vetoDay(i) {
+  const me = getMe();
+  if (!me) { closeDayModal(); openWhoModal(); return; }
+  const d = week[i];
+  if (!d || d.eatingOut || d.locked || vetoesLeft(me) === 0) return;
+  const offset = viewOffset;
+  const before = week.slice();
+  const vetoed = d.text;
+  const pick = pickReplacement(i, [vetoed]);
+  week[i] = { text: pick, locked: false, vetoedBy: me, vetoed };
+  saveWeek(week);
+  closeDayModal();
+  playNomSound();
+  renderWeek();
+  animateDays([i]);
+  const row = document.getElementById("day-" + i);
+  if (row) { row.classList.add("veto-stamp"); setTimeout(() => row.classList.remove("veto-stamp"), 900); }
+  showToast(`🙅 ${vetoed} vetoed — ${pick} instead`, { undo: () => restoreWeek(offset, before) });
 }
 
 function resetWeek() {
@@ -1106,6 +1422,16 @@ function openDayModal(i) {
   document.getElementById("dayModalTitle").textContent = `${FULL_DAYS[i]} ${date.getDate()} ${SHORT_MONTHS[date.getMonth()]}`;
   document.getElementById("dayTextInput").value = d ? d.text : "";
   document.getElementById("dayNoteInput").value = notes[isoDate(date)] || "";
+  // Veto button: only for a planned, unlocked meal
+  const vetoBtn = document.getElementById("dayVetoBtn");
+  const me = getMe();
+  const canVeto = d && !d.eatingOut && !d.locked;
+  vetoBtn.hidden = !canVeto;
+  if (canVeto) {
+    const left = me ? vetoesLeft(me) : 1;
+    vetoBtn.disabled = left === 0;
+    vetoBtn.textContent = left === 0 ? "🙅 You've used your veto this week" : "🙅 Veto this (1 veto each per week)";
+  }
   document.getElementById("dayLockCheckbox").checked = !!(d && d.locked);
   document.getElementById("dayEatingOutCheckbox").checked = !!(d && d.eatingOut);
   populateQuickPick();
@@ -1128,6 +1454,9 @@ document.getElementById("dayEatingOutCheckbox").addEventListener("change", (e) =
 });
 document.getElementById("dayModalOverlay").addEventListener("click", (e) => {
   if (e.target.id === "dayModalOverlay") closeDayModal();
+});
+document.getElementById("dayVetoBtn").addEventListener("click", () => {
+  if (editingDayIndex !== null) vetoDay(editingDayIndex);
 });
 document.getElementById("dayClearBtn").addEventListener("click", () => {
   if (editingDayIndex === null) return;
@@ -1202,6 +1531,8 @@ function renderMeals() {
       </div>
       <div class="meal-ing">${(m.ingredients||[]).map(escapeHtml).join(", ") || "No ingredients added"}</div>
       ${m.defrost ? `<div class="meal-tag">🧊 Defrost the night before</div>` : ""}
+      ${ratings.byMeal[m.name] && (ratings.byMeal[m.name].up || ratings.byMeal[m.name].down)
+        ? `<div class="meal-rating">${ratings.byMeal[m.name].up ? `👍 ${ratings.byMeal[m.name].up}` : ""}${ratings.byMeal[m.name].up && ratings.byMeal[m.name].down ? " · " : ""}${ratings.byMeal[m.name].down ? `👎 ${ratings.byMeal[m.name].down}` : ""}</div>` : ""}
       ${m.sourceUrl ? `<a href="${escapeHtml(m.sourceUrl)}" target="_blank" rel="noopener" class="meal-recipe-link">📖 Recipe</a>` : ""}
     </div>
   `).join("");
