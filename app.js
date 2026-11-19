@@ -971,8 +971,8 @@ function closeSwipe() {
 function swipeCardHtml(m, isTop) {
   const ings = (m.ingredients || []).slice(0, 5).join(", ");
   return `<div class="swipe-card${isTop ? " top" : ""}" data-name="${escapeHtml(m.name)}">
-    <div class="swipe-photo"><span class="swipe-emoji">${getMealEmoji(m.name)}</span>${m.image
-      ? `<img src="${escapeHtml(m.image)}" alt="" referrerpolicy="no-referrer" draggable="false" onerror="this.remove()">` : ""}</div>
+    <div class="swipe-photo"><span class="swipe-emoji">${getMealEmoji(m.name)}</span>${safeImage(m.image)
+      ? `<img src="${escapeHtml(safeImage(m.image))}" alt="" referrerpolicy="no-referrer" draggable="false" onerror="this.remove()">` : ""}</div>
     <div class="swipe-body">
       <div class="swipe-name">${escapeHtml(m.name)}${m.favourite ? ' <span class="swipe-fav">★</span>' : ""}</div>
       ${ings ? `<div class="swipe-ings">${escapeHtml(ings)}${(m.ingredients || []).length > 5 ? "…" : ""}</div>` : ""}
@@ -1588,7 +1588,7 @@ function renderMeals() {
   list.innerHTML = shown.map(m => `
     <div class="meal-card">
       <div class="meal-card-top">
-        <div class="meal-name">${m.image ? `<img class="meal-thumb" src="${escapeHtml(m.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}${m.image && !currentLook().noEmoji ? escapeHtml(m.name) : mealLabel(m.name)}</div>
+        <div class="meal-name">${safeImage(m.image) ? `<img class="meal-thumb" src="${escapeHtml(safeImage(m.image))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}${safeImage(m.image) && !currentLook().noEmoji ? escapeHtml(m.name) : mealLabel(m.name)}</div>
         <div class="meal-card-actions">
           <button class="icon-btn fav-btn ${m.favourite ? "active" : ""}" data-fav="${m.id}" aria-label="${m.favourite ? "Unfavourite" : "Favourite"} ${escapeHtml(m.name)}">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="${m.favourite ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
@@ -1669,7 +1669,12 @@ function deleteMeal(id) {
 let editingMealSourceUrl = null;
 let editingMealImage = null;
 
+// Only ever use plain http(s) image links (never javascript:, data: etc.)
+function safeImage(url) {
+  return typeof url === "string" && /^https?:\/\/\S+$/i.test(url.trim()) ? url.trim() : null;
+}
 function setMealPhoto(url) {
+  url = safeImage(url);
   editingMealImage = url || null;
   const img = document.getElementById("mealPhotoPreview");
   img.hidden = !url;

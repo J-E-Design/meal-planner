@@ -23,6 +23,11 @@ function fail(int $code, string $msg) {
     exit;
 }
 
+// Only the app itself may use the importer. (Origin can be faked by scripts, so this
+// stops casual use from other websites; the rate limit below covers the rest. A secret
+// token isn't possible here because the app's code is public on GitHub Pages.)
+if (!in_array($origin, $ALLOWED_ORIGINS, true)) fail(403, 'Not allowed.');
+
 // ---- Simple rate limit: 40 imports per hour per IP ----
 $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 $rl_file = sys_get_temp_dir() . '/wft_import_' . hash('sha256', $ip . __DIR__);
@@ -35,6 +40,36 @@ $hits[] = $now;
 // ---- Validate the URL: public http(s) addresses only ----
 $url = trim($_GET['url'] ?? '');
 if ($url === '' || strlen($url) > 2000) fail(400, 'Paste a link to a recipe page.');
+
+function ip_in_cidr(string $ip, string $cidr): bool {
+    [$net, $bits] = explode('/', $cidr);
+    $a = @inet_pton($ip);
+    $b = @inet_pton($net);
+    if ($a === false || $b === false || strlen($a) !== strlen($b)) return false;
+    $bits = (int)$bits;
+    $bytes = intdiv($bits, 8);
+    if (substr($a, 0, $bytes) !== substr($b, 0, $bytes)) return false;
+    $rem = $bits % 8;
+    if ($rem === 0) return true;
+    $mask = chr((0xFF << (8 - $rem)) & 0xFF);
+    return (($a[$bytes] & $mask) === ($b[$bytes] & $mask));
+}
+function ip_in_blocked_range(string $ip): bool {
+    foreach ([
+        '100.64.0.0/10',   // carrier-grade NAT
+        '192.0.0.0/24',    // IETF protocol assignments
+        '198.18.0.0/15',   // benchmarking
+        '64:ff9b::/96',    // NAT64
+        '64:ff9b:1::/48',  // local-use NAT64
+        '2002::/16',       // 6to4
+        '2001::/32',       // Teredo
+        '::ffff:0:0/96',   // IPv4-mapped IPv6
+        '100::/64',        // discard-only
+    ] as $cidr) {
+        if (ip_in_cidr($ip, $cidr)) return true;
+    }
+    return false;
+}
 
 function check_url(string $url): array {
     $p = parse_url($url);
@@ -51,8 +86,9 @@ function check_url(string $url): array {
     );
     if (!$ips) fail(400, "Couldn't find that website.");
     foreach ($ips as $ip) {
-        // Refuse private, loopback, link-local and reserved addresses (protects the server's own network)
-        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+        // Refuse private, loopback, link-local and reserved addresses (protects the server's own network),
+        // plus ranges PHP's flags don't cover: carrier-grade NAT, NAT64, 6to4, Teredo, IPv4-mapped IPv6 etc.
+        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) || ip_in_blocked_range($ip)) {
             fail(400, "That link isn't supported.");
         }
     }
@@ -116,7 +152,8 @@ function clean_text($s): string {
     return trim(preg_replace('/\s+/u', ' ', $s));
 }
 function image_url($img): string {
-    if (is_string($img)) return $img;
+    // Only ever hand back http(s) image links
+    if (is_string($img)) return preg_match('#^https?://#i', trim($img)) ? trim($img) : '';
     if (is_array($img)) {
         if (isset($img['url']) && is_string($img['url'])) return $img['url'];
         if (array_is_list($img) && $img) return image_url(end($img)); // last is usually the largest
@@ -149,7 +186,7 @@ if (!$recipe) {
     $title = $meta('og:title');
     if ($title === '') fail(422, "Couldn't find a recipe on that page.");
     echo json_encode([
-        'name' => $title, 'ingredients' => [], 'image' => $meta('og:image'), 'sourceUrl' => $final_url,
+        'name' => $title, 'ingredients' => [], 'image' => image_url($meta('og:image')), 'sourceUrl' => $final_url,
         'partial' => true,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
@@ -166,7 +203,7 @@ if (is_array($servings)) $servings = $servings[0] ?? '';
 echo json_encode([
     'name' => mb_substr(clean_text($recipe['name'] ?? '') ?: $meta('og:title'), 0, 80),
     'ingredients' => $ingredients,
-    'image' => image_url($recipe['image'] ?? '') ?: $meta('og:image'),
+    'image' => image_url($recipe['image'] ?? '') ?: image_url($meta('og:image')),
     'sourceUrl' => $final_url,
     'servings' => clean_text((string)$servings),
     'totalTime' => iso_minutes($recipe['totalTime'] ?? ($recipe['cookTime'] ?? '')),
