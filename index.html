@@ -65,21 +65,33 @@
       <ul class="shop-list" id="shopList"></ul>
       <div class="shop-actions">
         <button class="btn-secondary" id="clearTicksBtn" hidden>Untick all</button>
-        <button class="btn-primary" id="copyBtn">Copy what's left</button>
       </div>
-      <p class="keep-tip">💡 Copy pastes everything not yet ticked. For checkboxes in Keep: start a new <strong>checklist</strong>, then paste into the first item.</p>
     </div>
   </div>
 
   <!-- MEALS VIEW -->
   <div class="view" id="mealsView">
-    <div id="mealsList"></div>
-    <button class="add-meal-btn" id="suggestMealBtn">🌐 Suggest a meal from the web</button>
-    <button class="add-meal-btn" id="addMealBtn">🍽️ Add a meal</button>
-    <div class="shop-actions backup-actions">
-      <button class="btn-secondary" id="backupMealsBtn">⬇️ Backup</button>
-      <button class="btn-primary" id="restoreMealsBtn">⬆️ Restore</button>
+    <div class="meals-toolbar">
+      <button class="btn-primary" id="addMealBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        Add a meal
+      </button>
+      <button class="btn-secondary" id="suggestMealBtn">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.6L18.5 9.4l-4.7 1.8L12 16l-1.8-4.8L5.5 9.4l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+        Get an idea
+      </button>
+      <div class="more-wrap">
+        <button class="btn-secondary more-btn" id="mealsMoreBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="mealsMoreMenu" aria-label="More options">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+        </button>
+        <div class="menu-pop" id="mealsMoreMenu" role="menu" hidden>
+          <button role="menuitem" id="backupMealsBtn">⬇️ Back up my meals</button>
+          <button role="menuitem" id="restoreMealsBtn">⬆️ Restore from a backup</button>
+        </div>
+      </div>
     </div>
+    <p class="meals-count" id="mealsCount"></p>
+    <div id="mealsList"></div>
     <input type="file" id="restoreFileInput" accept="application/json,.json" hidden>
   </div>
 

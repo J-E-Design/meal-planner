@@ -299,3 +299,9 @@
   color: var(--muted2); text-decoration: line-through; text-decoration-color: var(--accent);
   text-decoration-thickness: 2.5px;
 }
+
+/* ---- My meals toolbar ---- */
+[data-look="fridge"] .meals-toolbar { margin-top: 20px; }
+[data-look="fridge"] .menu-pop { background: var(--paper); border: none; border-radius: 8px; box-shadow: 0 16px 30px -10px rgba(60, 40, 20, 0.45); }
+[data-look="fridge"] .menu-pop button { font-family: var(--round); font-weight: 500; font-size: 15px; }
+[data-look="fridge"] .meals-count { font-family: var(--hand); font-size: 20px; font-weight: 700; margin: 8px 4px 14px; }

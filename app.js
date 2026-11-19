@@ -745,20 +745,6 @@ function escapeHtml(str) {
 
 document.getElementById("shuffleBtn").addEventListener("click", shuffleAll);
 
-document.getElementById("copyBtn").addEventListener("click", async () => {
-  const items = buildShoppingList().filter(i => !ticks.includes(i.key));
-  if (items.length === 0) return;
-  const text = items.map(formatShoppingItem).join("\n");
-  try {
-    await navigator.clipboard.writeText(text);
-    const btn = document.getElementById("copyBtn");
-    const original = btn.textContent;
-    btn.textContent = "Copied!";
-    setTimeout(() => btn.textContent = original, 1400);
-  } catch (e) {
-    showAlert(text, "Couldn't copy automatically - here's your list");
-  }
-});
 
 // ---- Day modal ----
 function populateQuickPick() {
@@ -820,8 +806,11 @@ document.getElementById("daySaveBtn").addEventListener("click", () => {
 // ---- Meals view ----
 function renderMeals() {
   const list = document.getElementById("mealsList");
+  const favs = meals.filter(m => m.favourite).length;
+  document.getElementById("mealsCount").textContent = meals.length === 0 ? ""
+    : `${meals.length} meal${meals.length === 1 ? "" : "s"}` + (favs ? ` · ${favs} favourite${favs === 1 ? "" : "s"}` : "");
   if (meals.length === 0) {
-    list.innerHTML = `<div class="empty-state">🍽️ No meals yet. Add your first favourite below.</div>`;
+    list.innerHTML = `<div class="empty-state">🍽️ No meals yet. Tap “Add a meal” to add your first favourite.</div>`;
     return;
   }
   list.innerHTML = meals.map(m => `
@@ -924,6 +913,19 @@ document.getElementById("mealSaveBtn").addEventListener("click", () => {
   renderMeals();
   renderWeek();
 });
+
+// ---- My meals "⋯" menu ----
+const moreBtn = document.getElementById("mealsMoreBtn");
+const moreMenu = document.getElementById("mealsMoreMenu");
+function setMoreMenu(open) {
+  moreMenu.hidden = !open;
+  moreBtn.setAttribute("aria-expanded", String(open));
+  if (open) moreMenu.querySelector("button").focus();
+}
+moreBtn.addEventListener("click", (e) => { e.stopPropagation(); setMoreMenu(moreMenu.hidden); });
+moreMenu.addEventListener("click", () => setMoreMenu(false));
+document.addEventListener("click", (e) => { if (!moreMenu.hidden && !moreMenu.contains(e.target)) setMoreMenu(false); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !moreMenu.hidden) { setMoreMenu(false); moreBtn.focus(); } });
 
 // ---- Backup / restore ----
 document.getElementById("backupMealsBtn").addEventListener("click", () => {

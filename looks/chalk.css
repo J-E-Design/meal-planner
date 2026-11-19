@@ -314,3 +314,11 @@
   content: "✓"; display: flex; align-items: center; justify-content: center; font-family: var(--label);
   font-size: 13px; font-weight: 700; line-height: 1; color: var(--accent); border-color: var(--accent);
 }
+
+/* ---- My meals toolbar ---- */
+[data-look="chalk"] .meals-toolbar { margin-top: 20px; }
+[data-look="chalk"] .meals-toolbar .btn-primary,
+[data-look="chalk"] .meals-toolbar .btn-secondary { font-size: 11.5px; letter-spacing: 1.2px; }
+[data-look="chalk"] .menu-pop { background: var(--bg); background-image: var(--texture); border: 1.5px solid var(--rule-strong); border-radius: 2px; }
+[data-look="chalk"] .menu-pop button { font-family: var(--label); font-weight: 700; font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; border-radius: 0; }
+[data-look="chalk"] .meals-count { font-family: var(--hand); font-weight: 400; font-size: 15px; text-align: center; margin: 12px 0 10px; }
